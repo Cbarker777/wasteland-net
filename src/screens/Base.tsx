@@ -143,7 +143,7 @@ function PoolSelector() {
   return (
     <section className="md:col-span-5" aria-label="Question pool">
       <div className="label mb-2">Question pool: study, skills, and boss battles use the one you pick</div>
-      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup">
+      <div className="grid gap-3 sm:grid-cols-3" role="radiogroup">
         {POOL_ORDER.map((id: PoolId) => {
           const p = POOLS[id]
           const ids = IDS_BY_POOL[id]

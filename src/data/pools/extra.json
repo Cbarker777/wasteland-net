@@ -6,6 +6,18 @@
  "validThrough": "2028-06-30",
  "examLength": 50,
  "passMark": 37,
+ "figureFiles": {
+  "E5-1": "E5-1.png",
+  "E6-1": "E6-1.png",
+  "E6-2": "E6-2.png",
+  "E6-3": "E6-3.png",
+  "E7-1": "E7-1.png",
+  "E7-2": "E7-2.png",
+  "E7-3": "E7-3.png",
+  "E9-1": "E9-1.png",
+  "E9-2": "E9-2.png",
+  "E9-3": "E9-3.png"
+ },
  "subelements": [
   {
    "id": "E1",
@@ -5922,7 +5934,8 @@
     "47",
     "24"
    ],
-   "correct": 2
+   "correct": 2,
+   "figure": "E7-3"
   },
   {
    "id": "E7G08",
@@ -6994,7 +7007,8 @@
     "3 dB",
     "38 dB"
    ],
-   "correct": 1
+   "correct": 1,
+   "figure": "E9-2"
   },
   {
    "id": "E9B05",

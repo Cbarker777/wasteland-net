@@ -22,6 +22,7 @@ const STREAK_NAMES: Record<number, string> = { 7: 'Week on the Air', 30: 'Month 
 const bossId = (pool: PoolId, kind: 'pass' | 'perfect') => (pool === 'extra' ? `boss-${kind}` : `${pool}-boss-${kind}`)
 
 const BOSS_NAMES: Record<PoolId, { pass: string; perfect: string }> = {
+  technician: { pass: 'First Contact', perfect: 'Five by Five' },
   general: { pass: 'Gatekeeper Down', perfect: 'Clean Copy' },
   extra: { pass: 'Examiner Down', perfect: 'Flawless Transmission' },
 }

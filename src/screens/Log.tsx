@@ -132,8 +132,9 @@ export function Log() {
             that happens.
           </Rule>
           <Rule title="Boss battle">
-            One question from each question group, matching the real exam: General is {POOLS.general.examLength} questions with {POOLS.general.passMark} to pass,
-            Extra is {POOLS.extra.examLength} with {POOLS.extra.passMark}. Misses go straight into your study queue. XP, rank, Supplies, and streaks are shared
+            One question from each question group, matching the real exam:{' '}
+            {POOL_ORDER.map((p) => `${POOLS[p].name} is ${POOLS[p].examLength} questions with ${POOLS[p].passMark} to pass`).join(', ')}. Misses go straight into
+            your study queue. XP, rank, Supplies, and streaks are shared
             across pools; skills, boss battles, and mastery badges belong to the pool you pick on Base. A day
             counts toward your streak once you answer {DAILY_GOAL} questions.
           </Rule>

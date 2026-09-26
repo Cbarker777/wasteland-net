@@ -6,6 +6,9 @@
  "validThrough": "2027-06-30",
  "examLength": 35,
  "passMark": 26,
+ "figureFiles": {
+  "G7-1": "G7-1.png"
+ },
  "subelements": [
   {
    "id": "G1",
@@ -3925,7 +3928,8 @@
     "Symbol 1",
     "Symbol 4"
    ],
-   "correct": 2
+   "correct": 2,
+   "figure": "G7-1"
   },
   {
    "id": "G7A10",
@@ -3938,7 +3942,8 @@
     "Symbol 11",
     "Symbol 5"
    ],
-   "correct": 3
+   "correct": 3,
+   "figure": "G7-1"
   },
   {
    "id": "G7A11",
@@ -3951,7 +3956,8 @@
     "Symbol 7",
     "Symbol 11"
    ],
-   "correct": 1
+   "correct": 1,
+   "figure": "G7-1"
   },
   {
    "id": "G7A12",

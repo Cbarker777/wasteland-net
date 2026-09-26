@@ -1,4 +1,4 @@
-import { skillInfo, type Question } from '../data/pool'
+import { figureSrc, skillInfo, type Question } from '../data/pool'
 
 const LETTERS = ['A', 'B', 'C', 'D']
 
@@ -32,7 +32,7 @@ export function QuestionCard({
 
       {q.figure && (
         <figure className="mb-5 rounded-sm bg-[#f4efe4] p-3">
-          <img src={`figures/${q.figure}.png`} alt={`Figure ${q.figure} from the question pool`} className="mx-auto max-h-80 w-auto" />
+          <img src={figureSrc(q)} alt={`Figure ${q.figure} from the question pool`} className="mx-auto max-h-80 w-auto" />
         </figure>
       )}
 

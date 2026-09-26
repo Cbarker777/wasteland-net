@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { POOLS, QUESTIONS_BY_ID } from '../data/pool'
+import { figureSrc, POOL_ORDER, POOLS, QUESTIONS_BY_ID } from '../data/pool'
 import { answerBoss, answerStudy, IDS_BY_POOL, IDS_BY_SUBELEMENT, newSave, parseSave, setPool, startBoss, submitBoss, tick, type Save } from './save'
 import { addDays } from './dates'
 import { buildExam } from './boss'
@@ -7,6 +7,9 @@ import { rankFor, skillBreakdown, RANKS } from './progression'
 import { currentStreak, longestStreak } from './streak'
 import { dailyDecay, decaySupplies, initialSupplies } from './supplies'
 import { DAILY_GOAL, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
+
+// Every file actually shipped in public/figures/.
+const FIGURE_FILES = new Set(Object.keys(import.meta.glob('../../public/figures/*')).map((p) => `figures/${p.split('/').pop()}`))
 
 const today = '2026-09-26'
 const rng = () => 0
@@ -30,19 +33,39 @@ describe('question pools', () => {
     expect(POOLS.general).toMatchObject({ element: 3, examLength: 35, passMark: 26 })
   })
 
+  it('Technician has all ten sub-elements with the official exam distribution', () => {
+    expect(POOLS.technician.subelements.map((s) => `${s.id}:${s.examQuestions}`)).toEqual([
+      'T1:6', 'T2:3', 'T3:3', 'T4:2', 'T5:4', 'T6:4', 'T7:4', 'T8:4', 'T9:2', 'T0:3',
+    ])
+    expect(POOLS.technician.questions.length).toBe(409)
+    expect(POOLS.technician).toMatchObject({ element: 2, examLength: 35, passMark: 26 })
+  })
+
+  it('carries the Technician errata text', () => {
+    expect(QUESTIONS_BY_ID.get('T5A05')!.question).toBe('A difference in which of the following causes electron flow?')
+  })
+
+  it.each(POOL_ORDER)('%s: every question that cites a figure shows an image that exists', (pool) => {
+    for (const q of POOLS[pool].questions) {
+      if (/figure [TGE]d?-?d/i.test(q.question)) expect(q.figure, q.id).toBeTruthy()
+      if (q.figure) expect(FIGURE_FILES.has(figureSrc(q)!), q.id).toBe(true)
+    }
+  })
+
   it('does not contain withdrawn questions', () => {
     const withdrawn = ['E2A13', 'E4D05', 'E6D07', 'E9E10', 'G1A04', 'G1C08', 'G1C09', 'G1C10', 'G1E09', 'G6B09', 'G8C01', 'G9C06', 'G9D13']
     for (const id of withdrawn) expect(QUESTIONS_BY_ID.has(id)).toBe(false)
   })
 
   it('keeps each pool to its own questions', () => {
+    expect(IDS_BY_POOL.technician.every((id) => id.startsWith('T'))).toBe(true)
     expect(IDS_BY_POOL.general.every((id) => id.startsWith('G'))).toBe(true)
     expect(IDS_BY_POOL.extra.every((id) => id.startsWith('E'))).toBe(true)
   })
 })
 
 describe('boss exam', () => {
-  it.each(['general', 'extra'] as const)('%s draws one question per group, matching the sub-element distribution', (pool) => {
+  it.each(POOL_ORDER)('%s draws one question per group, matching the sub-element distribution', (pool) => {
     const p = POOLS[pool]
     const ids = buildExam(p, Math.random)
     expect(ids.length).toBe(p.examLength)
@@ -69,6 +92,16 @@ describe('boss exam', () => {
 
     save = answerBoss(save, 36, null)
     expect(submitBoss(save, today, rng).outcome.score).toMatchObject({ correct: 36, passed: false })
+  })
+
+  it('Technician passes at 26 and earns its own badge', () => {
+    let save = startBoss(setPool(newSave(today), 'technician'), today, rng)
+    const ids = save.activeBoss!.ids
+    expect(ids.every((id) => id.startsWith('T'))).toBe(true)
+    ids.forEach((id, i) => (save = answerBoss(save, i, i < 26 ? QUESTIONS_BY_ID.get(id)!.correct : null)))
+    const passed = submitBoss(save, today, rng)
+    expect(passed.outcome.score).toMatchObject({ correct: 26, total: 35, passed: true })
+    expect(passed.save.badges['technician-boss-pass']).toBe(today)
   })
 
   it('General passes at 26 and earns its own badges', () => {

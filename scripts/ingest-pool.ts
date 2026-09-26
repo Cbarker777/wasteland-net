@@ -3,6 +3,7 @@
  * and copies their diagrams to public/figures/.
  *
  * Sources:
+ *   https://www.ncvec.org/index.php/2026-2030-technician-question-pool
  *   https://www.ncvec.org/index.php/2023-2027-general-question-pool-release
  *   https://www.ncvec.org/index.php/2024-2028-extra-class-question-pool-release
  * Each .docx already has every errata applied (withdrawn questions are marked
@@ -18,7 +19,9 @@ import { unzipSync, strFromU8 } from 'fflate'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 type PoolSource = {
-  id: 'general' | 'extra'
+  id: 'technician' | 'general' | 'extra'
+  /** Question-id prefix. */
+  letter: 'T' | 'G' | 'E'
   name: string
   element: number
   docx: string
@@ -37,7 +40,20 @@ type PoolSource = {
 
 const POOLS: PoolSource[] = [
   {
+    id: 'technician',
+    letter: 'T',
+    name: 'Technician',
+    element: 2,
+    docx: 'pool-source/technician-pool-2026-2030-errata-2026-02-19.docx',
+    version: '2026-2030 Technician pool, errata (Feb 19, 2026)',
+    validThrough: '2030-06-30',
+    examLength: 35,
+    passMark: 26,
+    figures: ['T-1', 'T-2', 'T-3'],
+  },
+  {
     id: 'general',
+    letter: 'G',
     name: 'General',
     element: 3,
     docx: 'pool-source/general-pool-2023-2027-6th-errata-2026-02-04.docx',
@@ -49,6 +65,7 @@ const POOLS: PoolSource[] = [
   },
   {
     id: 'extra',
+    letter: 'E',
     name: 'Extra',
     element: 4,
     docx: 'pool-source/extra-pool-2024-2028-4th-errata-2026-02-04.docx',
@@ -78,7 +95,7 @@ const decode = (s: string) =>
 const titleCase = (s: string) => s.toLowerCase().replace(/(^|\s)(\w)/g, (_, sp: string, c: string) => sp + c.toUpperCase())
 
 function ingest(src: PoolSource) {
-  const L = src.id === 'general' ? 'G' : 'E'
+  const L = src.letter
   const files = unzipSync(readFileSync(join(ROOT, src.docx)))
   const xml = strFromU8(files['word/document.xml'])
 
@@ -97,7 +114,7 @@ function ingest(src: PoolSource) {
   // Step back to the syllabus summary if it directly precedes (it lists every group title).
   const summary = lines.findLastIndex((l, i) => i < start && new RegExp(`^SUBELEMENT ${L}1 .*Questions$`).test(l))
   if (summary >= 0) start = summary
-  const end = lines.findIndex((l) => l.includes('end of question pool text'))
+  const end = lines.findIndex((l) => /end of question pool text/i.test(l))
   if (firstQ < 0 || start < 0 || end < 0) throw new Error(`${src.id}: could not locate pool boundaries`)
 
   const SUB_RE = new RegExp(`^SUBELEMENT (${L}\\d) [-–] (.+?)\\s*[-–]?\\s*\\[(\\d+) exam questions? [-–] (\\d+) groups?\\]`, 'i')
@@ -146,7 +163,10 @@ function ingest(src: PoolSource) {
       }
       if (answers.length !== 4) throw new Error(`${id}: expected 4 answers, got ${answers.length}`)
       const question = text.join(' ')
-      const figure = new RegExp(`Figure (${L}\\d-\\d)`).exec(question)?.[1]
+      // Extra/General write "Figure E5-1" (sometimes "figure", and two Extra questions
+      // drop the hyphen: "Figure E73"); Technician writes "figure T-1".
+      const fig = new RegExp(`figure (${L}\\d?)-?(\\d)\\b`, 'i').exec(question)
+      const figure = fig ? `${fig[1].toUpperCase()}-${fig[2]}` : undefined
       questions.push({
         id,
         subelement: id.slice(0, 2),
@@ -188,6 +208,17 @@ function ingest(src: PoolSource) {
   }
   if (examTotal !== src.examLength) throw new Error(`${src.id}: exam totals ${examTotal}, expected ${src.examLength}`)
 
+  // ── Figures (PNG in the Extra/General docs, JPEG in Technician) ──
+  const media = Object.keys(files)
+    .filter((f) => /^word\/media\/image\d+\.(png|jpe?g)$/.test(f))
+    .sort((a, b) => Number(/image(\d+)/.exec(a)![1]) - Number(/image(\d+)/.exec(b)![1]))
+  if (media.length !== src.figures.length) throw new Error(`${src.id}: expected ${src.figures.length} images, got ${media.length}`)
+  const figureFiles: Record<string, string> = Object.fromEntries(
+    src.figures.map((id, idx) => [id, `${id}.${/\.(\w+)$/.exec(media[idx])![1].replace('jpeg', 'jpg')}`]),
+  )
+  mkdirSync(join(ROOT, 'public/figures'), { recursive: true })
+  media.forEach((f, idx) => writeFileSync(join(ROOT, 'public/figures', figureFiles[src.figures[idx]]), files[f]))
+
   mkdirSync(join(ROOT, 'src/data/pools'), { recursive: true })
   writeFileSync(
     join(ROOT, `src/data/pools/${src.id}.json`),
@@ -200,6 +231,7 @@ function ingest(src: PoolSource) {
         validThrough: src.validThrough,
         examLength: src.examLength,
         passMark: src.passMark,
+        figureFiles,
         subelements: [...subelements.values()],
         questions,
       },
@@ -207,14 +239,6 @@ function ingest(src: PoolSource) {
       1,
     ) + '\n',
   )
-
-  // ── Figures ──
-  const media = Object.keys(files)
-    .filter((f) => /^word\/media\/image\d+\.png$/.test(f))
-    .sort((a, b) => Number(/(\d+)\.png/.exec(a)![1]) - Number(/(\d+)\.png/.exec(b)![1]))
-  if (media.length !== src.figures.length) throw new Error(`${src.id}: expected ${src.figures.length} images, got ${media.length}`)
-  mkdirSync(join(ROOT, 'public/figures'), { recursive: true })
-  media.forEach((f, idx) => writeFileSync(join(ROOT, `public/figures/${src.figures[idx]}.png`), files[f]))
 
   console.log(`${src.name} (Element ${src.element}): ${src.version}`)
   for (const se of subelements.values())

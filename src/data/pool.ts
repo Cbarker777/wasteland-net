@@ -1,9 +1,10 @@
 import extraJson from './pools/extra.json'
 import generalJson from './pools/general.json'
+import technicianJson from './pools/technician.json'
 
-export type PoolId = 'general' | 'extra'
+export type PoolId = 'technician' | 'general' | 'extra'
 
-/** "G1", "E7", … — unique across pools because of the letter prefix. */
+/** "T1", "G1", "E7", … — unique across pools because of the letter prefix. */
 export type SubelementId = string
 
 export type Group = { id: string; title: string }
@@ -34,27 +35,35 @@ export type Pool = {
   validThrough: string
   examLength: number
   passMark: number
+  /** Figure id ("E5-1", "T-2") → file name in public/figures/. */
+  figureFiles: Record<string, string>
   subelements: Subelement[]
   questions: Question[]
 }
 
-export const POOL_ORDER: PoolId[] = ['general', 'extra']
+export const POOL_ORDER: PoolId[] = ['technician', 'general', 'extra']
 
 export const POOLS: Record<PoolId, Pool> = {
-  general: generalJson as Pool,
-  extra: extraJson as Pool,
+  technician: technicianJson as unknown as Pool,
+  general: generalJson as unknown as Pool,
+  extra: extraJson as unknown as Pool,
 }
 
 export const QUESTIONS_BY_ID: ReadonlyMap<string, Question> = new Map(POOL_ORDER.flatMap((p) => POOLS[p].questions.map((q) => [q.id, q] as const)))
 
-export const poolOf = (id: string): PoolId => (id.startsWith('G') ? 'general' : 'extra')
+const POOL_BY_LETTER: Record<string, PoolId> = { T: 'technician', G: 'general', E: 'extra' }
+
+/** Pool of a question or sub-element id, from its letter prefix. */
+export const poolOf = (id: string): PoolId => POOL_BY_LETTER[id[0]]
+
+export const figureSrc = (q: Question) => (q.figure ? `figures/${POOLS[poolOf(q.id)].figureFiles[q.figure]}` : undefined)
 
 export const subelementIds = (pool: PoolId): SubelementId[] => POOLS[pool].subelements.map((s) => s.id)
 
 export const ALL_SUBELEMENTS: SubelementId[] = POOL_ORDER.flatMap(subelementIds)
 
 /**
- * Both pools number their sub-elements by the same topics (x1 rules … x0
+ * All three pools number their sub-elements by the same topics (x1 rules … x0
  * safety), so the wasteland flavor is keyed by that digit.
  */
 const TOPICS: Record<string, { label: string; flavor: string; badge: string }> = {

@@ -1,17 +1,18 @@
 # Wasteland Net
 
-A gamified study tool for the FCC **General** (Element 3) and **Amateur Extra** (Element 4) license exams. The grid is down, and your radio knowledge is what keeps your survivor fed, powered, and connected.
+A gamified study tool for the FCC **Technician** (Element 2), **General** (Element 3), and **Amateur Extra** (Element 4) license exams. The grid is down, and your radio knowledge is what keeps your survivor fed, powered, and connected.
 
 - **Official question pools.** Pick one on the Base screen and study, skills, and boss battles all use it:
+  - **Technician:** all 409 questions from the NCVEC 2026–2030 pool, including the Feb 19, 2026 errata.
   - **General:** all 423 active questions from the NCVEC 2023–2027 pool, current through the 6th errata (Feb 4, 2026).
   - **Extra:** all 599 active questions from the NCVEC 2024–2028 pool, current through the 4th errata (Feb 4, 2026).
 
-  Both include the pools' diagrams. XP, rank, Supplies, and streaks are shared across pools.
+  All three include their pools' diagrams. XP, rank, Supplies, and streaks are shared across pools.
 - **Spaced repetition.** Missed questions come back within 3–5 questions. Three correct in a row moves a question to the medium-term pool. Continued success moves it to a long-term pool that still resurfaces now and then.
 - **Survivor rank.** XP from correct answers moves you through Scavenger → Signal Runner → Relay Keeper → Net Control → Wasteland Elmer.
-- **Ten skill trees per pool.** Each sub-element (G1–G0 or E1–E0) levels up on its own. The Skills screen shows your strengths and weak spots.
+- **Ten skill trees per pool.** Each sub-element (T1–T0, G1–G0, or E1–E0) levels up on its own. The Skills screen shows your strengths and weak spots.
 - **Supplies.** They decay a little every day. Correct answers restock them, and fixing a question you missed pays a bonus. Wrong answers never cost anything. Running out puts the radio in a low-power state until you study again. It is never game over.
-- **Boss battle.** A simulated exam that draws one question from each group, matching the real sub-element distribution. General is 35 questions (26 to pass), Extra is 50 (37 to pass).
+- **Boss battle.** A simulated exam that draws one question from each group, matching the real sub-element distribution. Technician and General are 35 questions (26 to pass), Extra is 50 (37 to pass).
 - **Badges.** Study streaks (7/30/100 days), passing and perfect boss battles and sub-element mastery for each pool, and a survivor badge for 30 straight days with Supplies above zero.
 
 ## Run it on Unraid
@@ -70,6 +71,6 @@ NCVEC publishes the pools and their errata at <https://www.ncvec.org/index.php/a
 3. Run `npm run ingest:pool`. It validates every question, group, and figure and fails loudly if anything is off.
 4. Run `npm test` and commit.
 
-The General pool expires June 30, 2027, and the Extra pool expires June 30, 2028. A new pool may change its figures, so check each pool's `figures` list in the ingest script against the new diagrams.
+The General pool expires June 30, 2027, Extra on June 30, 2028, and Technician on June 30, 2030. A new pool may change its figures, so check each pool's `figures` list in the ingest script against the new diagrams.
 
 Question pool text is public domain, published by the NCVEC Question Pool Committee.

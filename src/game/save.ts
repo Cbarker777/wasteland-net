@@ -66,10 +66,7 @@ export const IDS_BY_SUBELEMENT: Record<SubelementId, string[]> = Object.fromEntr
   ALL_SUBELEMENTS.map((se) => [se, [...QUESTIONS_BY_ID.values()].filter((q) => q.subelement === se).map((q) => q.id)]),
 )
 
-export const IDS_BY_POOL: Record<PoolId, string[]> = {
-  general: POOLS.general.questions.map((q) => q.id),
-  extra: POOLS.extra.questions.map((q) => q.id),
-}
+export const IDS_BY_POOL = Object.fromEntries(POOL_ORDER.map((p) => [p, POOLS[p].questions.map((q) => q.id)])) as Record<PoolId, string[]>
 
 export function bestBoss(save: Save, pool: PoolId): number | null {
   const scores = save.bossHistory.filter((b) => b.pool === pool).map((b) => b.correct)
