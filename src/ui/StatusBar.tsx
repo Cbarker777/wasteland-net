@@ -37,7 +37,8 @@ export function StatusBar() {
           <div className="grid w-full grid-cols-3 gap-3 sm:ml-auto sm:w-auto sm:max-w-xl sm:flex-1 sm:gap-4">
             <div>
               <div className="label truncate">
-                Rank<span className="hidden sm:inline"> · {save.xp.toLocaleString()} XP</span>
+                <span className="hidden sm:inline">Rank · </span>
+                {save.xp.toLocaleString()} XP
               </div>
               <div className="truncate text-sm text-signal">{r.rank.name}</div>
               <Meter value={r.intoRank} max={r.rankSpan ?? 1} className="mt-1" />
