@@ -1,0 +1,12 @@
+services:
+  wasteland-net:
+    # Pulls the image GitHub Actions publishes on every push to master.
+    # To build from this checkout instead: docker compose up -d --build
+    image: ghcr.io/cbarker777/wasteland-net:latest
+    build: .
+    container_name: wasteland-net
+    ports:
+      - "8282:80"
+    restart: unless-stopped
+    # No volumes: the container is stateless. All progress lives in the
+    # browser's localStorage, per browser profile. See README for backups.
