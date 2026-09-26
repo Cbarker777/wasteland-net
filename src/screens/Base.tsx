@@ -130,7 +130,11 @@ export function Base() {
         <div className="flex flex-wrap items-center gap-4">
           <div className="min-w-0 flex-1 text-sm text-sand-dim">
             {save.activeBoss ? (
-              <span className="text-rust">A {POOLS[save.activeBoss.pool].name} battle with the Examiner is in progress.</span>
+              <span className="text-rust">
+                {save.activeBoss.subelement
+                  ? `A mini boss fight with ${skillInfo(save.activeBoss.subelement).miniBoss} is in progress.`
+                  : `A ${POOLS[save.activeBoss.pool].name} battle with the Examiner is in progress.`}
+              </span>
             ) : lastBoss ? (
               <>
                 Last fight:{' '}

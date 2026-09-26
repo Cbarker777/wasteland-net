@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { POOLS, QUESTIONS_BY_ID, skillInfo } from '../data/pool'
-import type { BossOutcome } from '../game/save'
+import { passMarkFor, type BossOutcome } from '../game/save'
 import { useGame } from '../store'
 import { Button, Meter, Panel } from '../ui/kit'
 import { keyToChoice, pct } from '../ui/util'
@@ -8,9 +8,20 @@ import { QuestionCard } from '../ui/QuestionCard'
 
 export function Boss() {
   const active = useGame((s) => s.save.activeBoss)
+  const go = useGame((s) => s.go)
   const [result, setResult] = useState<{ outcome: BossOutcome; ids: string[]; answers: (number | null)[] } | null>(null)
 
-  if (result) return <BossResult {...result} onDone={() => setResult(null)} />
+  if (result)
+    return (
+      <BossResult
+        {...result}
+        onDone={() => {
+          // A mini boss is launched from Skills, so that's where it returns.
+          if (result.outcome.subelement) go('skills')
+          setResult(null)
+        }}
+      />
+    )
   if (active) return <Battle onFinish={setResult} />
   return <BossLobby />
 }
@@ -114,7 +125,14 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-      <Panel title={`${pool.name} boss battle · Question ${i + 1} of ${examLength}`} right={`${answered}/${examLength} answered`}>
+      <Panel
+        title={
+          boss.subelement
+            ? `${skillInfo(boss.subelement).miniBoss} · ${boss.subelement} mini boss · Question ${i + 1} of ${examLength}`
+            : `${pool.name} boss battle · Question ${i + 1} of ${examLength}`
+        }
+        right={`${answered}/${examLength} answered · pass ${passMarkFor(boss)}`}
+      >
         <QuestionCard q={q} selected={boss.answers[i]} revealed={false} onSelect={choose} />
         <div className="mt-5 flex flex-wrap gap-2">
           <Button onClick={() => setI(i - 1)} disabled={i === 0}>
@@ -184,29 +202,44 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
 }
 
 function BossResult({ outcome, ids, answers, onDone }: { outcome: BossOutcome; ids: string[]; answers: (number | null)[]; onDone: () => void }) {
-  const { score } = outcome
+  const { score, passMark, subelement } = outcome
   const pool = POOLS[outcome.pool]
   const [showMissed, setShowMissed] = useState(false)
-  const hp = Math.max(0, pool.passMark - score.correct)
+  const hp = Math.max(0, passMark - score.correct)
+  const enemy = subelement ? skillInfo(subelement).miniBoss : 'The Examiner'
+  const passRatio = passMark / score.total
+
+  // Mini bosses break down by question group; full battles by sub-element.
+  const rows = subelement
+    ? POOLS[outcome.pool].subelements
+        .find((s) => s.id === subelement)!
+        .groups.map((g) => {
+          const idx = ids.map((id, i) => (id.startsWith(g.id) ? i : -1)).filter((i) => i >= 0)
+          return { id: g.id, label: g.title, correct: idx.filter((i) => answers[i] === QUESTIONS_BY_ID.get(ids[i])!.correct).length, total: idx.length }
+        })
+        .filter((r) => r.total > 0)
+    : pool.subelements.map(({ id }) => ({ id, label: skillInfo(id).label, ...score.bySubelement[id]! }))
 
   return (
     <div className="grid gap-4">
-      <Panel title={`${pool.name} battle report`}>
+      <Panel title={subelement ? `${enemy} · ${subelement} ${skillInfo(subelement).label} · report` : `${pool.name} battle report`}>
         <div className="flex flex-wrap items-end gap-6">
           <div>
             <div className={`text-5xl font-bold ${score.passed ? 'text-rad glow-rad' : 'text-rust'}`}>{score.passed ? 'PASS' : 'FAIL'}</div>
             <div className="mt-1 text-sm text-sand-dim">
-              {score.correct}/{score.total} correct ({pct(score.correct, score.total)}%) · pass mark {pool.passMark}
+              {score.correct}/{score.total} correct ({pct(score.correct, score.total)}%) · pass mark {passMark}
             </div>
           </div>
           <div className="min-w-56 flex-1">
-            <div className="label mb-1">Examiner integrity</div>
-            <Meter value={hp} max={pool.passMark} tone="rust" className="!h-4" />
+            <div className="label mb-1">{enemy} integrity</div>
+            <Meter value={hp} max={passMark} tone="rust" className="!h-4" />
             <div className="mt-1 text-xs text-sand-dim">
               {score.passed
                 ? score.correct === score.total
                   ? 'Flawless. Not a single miss.'
-                  : 'The Examiner is down. You would pass the real thing today.'
+                  : subelement
+                    ? `${enemy} is down. This sub-element is holding up.`
+                    : 'The Examiner is down. You would pass the real thing today.'
                 : `${hp} more correct answer${hp === 1 ? '' : 's'} would have brought it down.`}
             </div>
           </div>
@@ -216,21 +249,20 @@ function BossResult({ outcome, ids, answers, onDone }: { outcome: BossOutcome; i
         </div>
       </Panel>
 
-      <Panel title="By sub-element">
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {pool.subelements.map(({ id: se }) => {
-            const row = score.bySubelement[se]!
-            return (
-              <li key={se} className="flex items-center gap-3 text-sm">
-                <span className="w-7 text-signal">{se}</span>
-                <span className="w-44 truncate text-xs text-sand-dim">{skillInfo(se).label}</span>
-                <Meter value={row.correct} max={row.total} tone={row.correct === row.total ? 'rad' : row.correct / row.total >= pool.passMark / pool.examLength ? 'signal' : 'rust'} className="flex-1" />
-                <span className="w-10 text-right">
-                  {row.correct}/{row.total}
-                </span>
-              </li>
-            )
-          })}
+      <Panel title={subelement ? 'By question group' : 'By sub-element'}>
+        <ul className={`grid gap-2 ${subelement ? '' : 'sm:grid-cols-2'}`}>
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-center gap-3 text-sm">
+              <span className={`${subelement ? 'w-10' : 'w-7'} text-signal`}>{row.id}</span>
+              <span className={`${subelement ? 'min-w-0 flex-[2]' : 'w-44'} truncate text-xs text-sand-dim`} title={row.label}>
+                {row.label}
+              </span>
+              <Meter value={row.correct} max={row.total} tone={row.correct === row.total ? 'rad' : row.correct / row.total >= passRatio ? 'signal' : 'rust'} className="flex-1" />
+              <span className="w-10 text-right">
+                {row.correct}/{row.total}
+              </span>
+            </li>
+          ))}
         </ul>
       </Panel>
 
@@ -262,7 +294,7 @@ function BossResult({ outcome, ids, answers, onDone }: { outcome: BossOutcome; i
 
       <div>
         <Button variant="primary" onClick={onDone}>
-          Back to the tower
+          {outcome.subelement ? 'Back to skills' : 'Back to the tower'}
         </Button>
       </div>
     </div>

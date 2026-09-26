@@ -66,17 +66,17 @@ export const ALL_SUBELEMENTS: SubelementId[] = POOL_ORDER.flatMap(subelementIds)
  * All three pools number their sub-elements by the same topics (x1 rules … x0
  * safety), so the wasteland flavor is keyed by that digit.
  */
-const TOPICS: Record<string, { label: string; flavor: string; badge: string }> = {
-  '1': { label: "Commission's Rules", flavor: 'The old laws still hold on the air', badge: 'Keeper of the Old Law' },
-  '2': { label: 'Operating Procedures', flavor: 'Nets, contests, and working the bands', badge: 'Procedure Veteran' },
-  '3': { label: 'Radio Wave Propagation', flavor: 'Reading the sky for a path out', badge: 'Sky Reader' },
-  '4': { label: 'Amateur Radio Practices', flavor: 'Test gear, receivers, and noise hunting', badge: 'Bench Scavver' },
-  '5': { label: 'Electrical Principles', flavor: 'Resonance, phase, and the math of power', badge: 'Current Tamer' },
-  '6': { label: 'Circuit Components', flavor: 'Salvaged parts and what they really do', badge: 'Parts Hoarder' },
-  '7': { label: 'Practical Circuits', flavor: 'Amps, filters, and oscillators from the scrap pile', badge: 'Rig Builder' },
-  '8': { label: 'Signals and Emissions', flavor: 'Modulation, sampling, and the shape of a signal', badge: 'Waveform Whisperer' },
-  '9': { label: 'Antennas and Feed Lines', flavor: 'Wire in the air is the difference between heard and lost', badge: 'Skywire Rigger' },
-  '0': { label: 'Safety', flavor: 'RF exposure, towers, and staying alive', badge: 'Still Breathing' },
+const TOPICS: Record<string, { label: string; flavor: string; badge: string; miniBoss: string }> = {
+  '1': { label: "Commission's Rules", flavor: 'The old laws still hold on the air', badge: 'Keeper of the Old Law', miniBoss: 'The Regulator' },
+  '2': { label: 'Operating Procedures', flavor: 'Nets, contests, and working the bands', badge: 'Procedure Veteran', miniBoss: 'The Pileup King' },
+  '3': { label: 'Radio Wave Propagation', flavor: 'Reading the sky for a path out', badge: 'Sky Reader', miniBoss: 'Static Wraith' },
+  '4': { label: 'Amateur Radio Practices', flavor: 'Test gear, receivers, and noise hunting', badge: 'Bench Scavver', miniBoss: 'Rustjaw the Tinker' },
+  '5': { label: 'Electrical Principles', flavor: 'Resonance, phase, and the math of power', badge: 'Current Tamer', miniBoss: 'Voltage Hound' },
+  '6': { label: 'Circuit Components', flavor: 'Salvaged parts and what they really do', badge: 'Parts Hoarder', miniBoss: 'Junkyard Golem' },
+  '7': { label: 'Practical Circuits', flavor: 'Amps, filters, and oscillators from the scrap pile', badge: 'Rig Builder', miniBoss: 'Feedback Loop' },
+  '8': { label: 'Signals and Emissions', flavor: 'Modulation, sampling, and the shape of a signal', badge: 'Waveform Whisperer', miniBoss: 'The Jammer' },
+  '9': { label: 'Antennas and Feed Lines', flavor: 'Wire in the air is the difference between heard and lost', badge: 'Skywire Rigger', miniBoss: 'Skywire Stalker' },
+  '0': { label: 'Safety', flavor: 'RF exposure, towers, and staying alive', badge: 'Still Breathing', miniBoss: 'The Hot Zone' },
 }
 
 export function skillInfo(se: SubelementId) {

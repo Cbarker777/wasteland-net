@@ -14,6 +14,7 @@ A gamified study tool for the FCC **Technician** (Element 2), **General** (Eleme
 - **Supplies.** They decay a little every day. Correct answers restock them, and fixing a question you missed pays a bonus. Wrong answers never cost anything. Running out puts the radio in a low-power state until you study again. It is never game over.
 - **Outpost.** Correct answers also bring back Scrap, a building material that never decays. Spend it to build and upgrade six structures (Radio Tower, Water Purifier, Greenhouse, Field Clinic, Solar Array, Signal Bunker). Each one changes the outpost scene and adds a small Supplies or Scrap perk. None of them make questions easier.
 - **Boss battle.** A simulated exam that draws one question from each group, matching the real sub-element distribution. Technician and General are 35 questions (26 to pass), Extra is 50 (37 to pass).
+- **Mini bosses.** A 10-question test on one sub-element, spread evenly across its question groups, with no feedback until the end. 8 of 10 passes (the real exams' 74%). Start one from the Skills screen. Results show per question group and never count toward full boss badges or skill mastery.
 - **Badges.** Study streaks (7/30/100 days), building and maxing the outpost, passing and perfect boss battles and sub-element mastery for each pool, and a survivor badge for 30 straight days with Supplies above zero.
 
 ## Run it on Unraid

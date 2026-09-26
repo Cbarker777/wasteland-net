@@ -6,14 +6,17 @@ import {
   LONG_FIRST_DAYS,
   MEDIUM_INTERVALS_DAYS,
   MISS_REQUEUE_MAX,
+  MINI_LENGTH,
   MISS_REQUEUE_MIN,
   SCRAP_CORRECT,
+  SCRAP_MINI_PASS,
   SUPPLIES_CORRECT,
   SUPPLIES_DECAY_FLAT,
   SUPPLIES_DECAY_PERCENT,
   SUPPLIES_RECOVERY_BONUS,
   XP_CORRECT,
 } from '../game/config'
+import { miniPassMark } from '../game/boss'
 import { IDS_BY_POOL } from '../game/save'
 import { longestStreak } from '../game/streak'
 import { today, useGame } from '../store'
@@ -131,6 +134,11 @@ export function Log() {
             You lose {SUPPLIES_DECAY_FLAT} + {SUPPLIES_DECAY_PERCENT * 100}% of your stockpile every day. Correct answers add {SUPPLIES_CORRECT}. Answering a question you
             previously missed adds {SUPPLIES_RECOVERY_BONUS} more. Wrong answers cost nothing. At zero the radio drops to low power until you study again. That's all
             that happens.
+          </Rule>
+          <Rule title="Mini bosses">
+            From the Skills screen, fight one sub-element's mini boss: {MINI_LENGTH} questions spread across its question groups, no feedback until you submit, and{' '}
+            {miniPassMark(MINI_LENGTH)} to pass. Misses go into your study queue. Wins pay {SCRAP_MINI_PASS} bonus Scrap but don't count toward skill levels, which
+            only come from spaced repetition over days.
           </Rule>
           <Rule title="Outpost">
             Every correct answer also brings back {SCRAP_CORRECT} Scrap, with more when a question moves up a pool or you pass a boss battle. Scrap never decays.

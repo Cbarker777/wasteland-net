@@ -9,12 +9,13 @@
  */
 import { ALL_SUBELEMENTS, POOL_ORDER, POOLS, QUESTIONS_BY_ID, type PoolId, type SubelementId } from '../data/pool'
 import { newlyEarned, type Badge } from './badges'
-import { buildExam, scoreExam, type ExamScore } from './boss'
+import { buildExam, buildMiniExam, miniPassMark, scoreExam, type ExamScore } from './boss'
 import {
   SCRAP_BOSS_PASS,
   SCRAP_CORRECT,
   SCRAP_GRADUATE_LONG,
   SCRAP_GRADUATE_MEDIUM,
+  SCRAP_MINI_PASS,
   SUPPLIES_CORRECT,
   SUPPLIES_RECOVERY_BONUS,
   XP_CORRECT,
@@ -27,7 +28,7 @@ import { applyAnswer, type AnswerResult, type Cards, type Rng } from './srs'
 import { longestStreak, type DayLog } from './streak'
 import { decaySupplies, gainSupplies, initialSupplies, survivorDays, type Supplies } from './supplies'
 
-export const SAVE_VERSION = 3
+export const SAVE_VERSION = 4
 export const DEFAULT_POOL: PoolId = 'extra'
 
 export type BossRecord = {
@@ -39,7 +40,17 @@ export type BossRecord = {
   bySubelement: ExamScore['bySubelement']
 }
 
-export type ActiveBoss = { pool: PoolId; ids: string[]; answers: (number | null)[]; startedAt: string }
+export type ActiveBoss = {
+  pool: PoolId
+  /** Set for a mini boss: the one sub-element being tested. */
+  subelement?: SubelementId
+  ids: string[]
+  answers: (number | null)[]
+  startedAt: string
+}
+
+/** Mini boss results per sub-element. Kept apart from bossHistory so they never count toward full-exam badges. */
+export type MiniRecord = { attempts: number; wins: number; best: number; total: number; lastDate: string }
 
 export type Save = {
   version: typeof SAVE_VERSION
@@ -59,6 +70,7 @@ export type Save = {
   lastChargeDate: string | null
   days: DayLog
   bossHistory: BossRecord[]
+  miniBosses: Record<SubelementId, MiniRecord>
   activeBoss: ActiveBoss | null
   /** Badge id → date earned. */
   badges: Record<string, string>
@@ -78,6 +90,7 @@ export function newSave(today: string): Save {
     lastChargeDate: null,
     days: {},
     bossHistory: [],
+    miniBosses: {},
     activeBoss: null,
     badges: {},
   }
@@ -199,6 +212,19 @@ export function startBoss(save: Save, today: string, rng: Rng): Save {
   return { ...save, activeBoss: { pool: save.pool, ids, answers: ids.map(() => null), startedAt: today } }
 }
 
+/** Starts a mini boss on one sub-element of the save's current pool. */
+export function startMiniBoss(save: Save, subelement: SubelementId, today: string, rng: Rng): Save {
+  const pool = POOLS[save.pool]
+  const se = pool.subelements.find((s) => s.id === subelement)
+  if (!se) throw new Error(`${subelement} is not in the ${pool.name} pool`)
+  const ids = buildMiniExam(se, pool.questions, rng)
+  return { ...save, activeBoss: { pool: save.pool, subelement, ids, answers: ids.map(() => null), startedAt: today } }
+}
+
+export function passMarkFor(boss: Pick<ActiveBoss, 'pool' | 'subelement' | 'ids'>): number {
+  return boss.subelement ? miniPassMark(boss.ids.length) : POOLS[boss.pool].passMark
+}
+
 export function answerBoss(save: Save, index: number, choice: number | null): Save {
   if (!save.activeBoss) return save
   const answers = save.activeBoss.answers.slice()
@@ -212,6 +238,9 @@ export function abandonBoss(save: Save): Save {
 
 export type BossOutcome = {
   pool: PoolId
+  /** Set when this was a mini boss. */
+  subelement?: SubelementId
+  passMark: number
   score: ExamScore
   xp: number
   supplies: number
@@ -227,7 +256,8 @@ export type BossOutcome = {
 export function submitBoss(save: Save, today: string, rng: Rng): { save: Save; outcome: BossOutcome } {
   const boss = save.activeBoss
   if (!boss) throw new Error('No boss battle in progress')
-  const score = scoreExam(boss.ids, boss.answers, QUESTIONS_BY_ID, POOLS[boss.pool].passMark)
+  const passMark = passMarkFor(boss)
+  const score = scoreExam(boss.ids, boss.answers, QUESTIONS_BY_ID, passMark)
   const p = perks(save.outpost)
 
   const cards = { ...save.cards }
@@ -245,7 +275,7 @@ export function submitBoss(save: Save, today: string, rng: Rng): { save: Save; o
       scrap += reward.scrap
     }
   })
-  if (score.passed) scrap += SCRAP_BOSS_PASS + p.bossPassScrap
+  if (score.passed) scrap += boss.subelement ? SCRAP_MINI_PASS : SCRAP_BOSS_PASS + p.bossPassScrap
   const solarCharge = score.correct > 0 && p.dailyCharge > 0 && save.lastChargeDate !== today ? p.dailyCharge : 0
   supplies += solarCharge
 
@@ -259,17 +289,28 @@ export function submitBoss(save: Save, today: string, rng: Rng): { save: Save; o
     scrap: save.scrap + scrap,
     lastChargeDate: solarCharge ? today : save.lastChargeDate,
     days: { ...save.days, [today]: (save.days[today] ?? 0) + answered },
-    bossHistory: [
-      ...save.bossHistory,
-      { pool: boss.pool, date: today, correct: score.correct, total: score.total, passed: score.passed, bySubelement: score.bySubelement },
-    ],
+    bossHistory: boss.subelement
+      ? save.bossHistory
+      : [...save.bossHistory, { pool: boss.pool, date: today, correct: score.correct, total: score.total, passed: score.passed, bySubelement: score.bySubelement }],
+    miniBosses: boss.subelement ? { ...save.miniBosses, [boss.subelement]: recordMini(save.miniBosses[boss.subelement], score, today) } : save.miniBosses,
     activeBoss: null,
   }
   const after = rankFor(next.xp)
   const awarded = awardBadges(next, today)
   return {
     save: awarded.save,
-    outcome: { pool: boss.pool, score, xp, supplies, scrap, rankUp: after.index > before ? after.rank : null, earned: awarded.earned },
+    outcome: { pool: boss.pool, subelement: boss.subelement, passMark, score, xp, supplies, scrap, rankUp: after.index > before ? after.rank : null, earned: awarded.earned },
+  }
+}
+
+function recordMini(prev: MiniRecord | undefined, score: ExamScore, today: string): MiniRecord {
+  const better = !prev || score.correct / score.total > prev.best / prev.total
+  return {
+    attempts: (prev?.attempts ?? 0) + 1,
+    wins: (prev?.wins ?? 0) + (score.passed ? 1 : 0),
+    best: better ? score.correct : prev.best,
+    total: better ? score.total : prev.total,
+    lastDate: today,
   }
 }
 
@@ -288,6 +329,7 @@ export function build(save: Save, id: StructureId, today: string): BuildResult {
  * v1 → v2: v1 was Extra-only, so everything in it belongs to the Extra pool.
  * v2 → v3: adds Scrap and the outpost, with back-pay of Scrap for every
  * correct answer already logged.
+ * v3 → v4: adds mini boss records.
  */
 export function migrateSave(data: unknown): Save {
   let s = data as Record<string, unknown> & Partial<Save>
@@ -302,7 +344,10 @@ export function migrateSave(data: unknown): Save {
   }
   if ((s.version as number) === 2) {
     const correctSoFar = Object.values(s.cards ?? {}).reduce((n, c) => n + c.correct, 0)
-    s = { ...s, version: SAVE_VERSION, scrap: correctSoFar * SCRAP_CORRECT, outpost: emptyOutpost(), lastChargeDate: null }
+    s = { ...s, version: 3 as never, scrap: correctSoFar * SCRAP_CORRECT, outpost: emptyOutpost(), lastChargeDate: null }
+  }
+  if ((s.version as number) === 3) {
+    s = { ...s, version: SAVE_VERSION, miniBosses: {} }
   }
   return s as Save
 }

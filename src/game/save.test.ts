@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { figureSrc, POOL_ORDER, POOLS, QUESTIONS_BY_ID } from '../data/pool'
-import { answerBoss, answerStudy, build, IDS_BY_POOL, IDS_BY_SUBELEMENT, newSave, parseSave, setPool, startBoss, submitBoss, tick, type Save } from './save'
+import { answerBoss, answerStudy, build, IDS_BY_POOL, startMiniBoss, IDS_BY_SUBELEMENT, newSave, parseSave, setPool, startBoss, submitBoss, tick, type Save } from './save'
 import { addDays } from './dates'
-import { buildExam } from './boss'
+import { buildExam, buildMiniExam, miniPassMark } from './boss'
 import { rankFor, skillBreakdown, RANKS } from './progression'
 import { currentStreak, longestStreak } from './streak'
 import { dailyDecay, decaySupplies, initialSupplies } from './supplies'
-import { DAILY_GOAL, SCRAP_BOSS_PASS, SCRAP_CORRECT, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
+import { DAILY_GOAL, MINI_LENGTH, SCRAP_BOSS_PASS, SCRAP_CORRECT, SCRAP_MINI_PASS, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
 import { emptyOutpost, MAX_STRUCTURE_LEVEL, STRUCTURES } from './outpost'
 
 // Every file actually shipped in public/figures/.
@@ -241,7 +241,7 @@ describe('save files', () => {
       badges: { 'boss-pass': today },
     }
     const save = parseSave(JSON.stringify(v1))
-    expect(save).toMatchObject({ version: 3, pool: 'extra', xp: 540, badges: { 'boss-pass': today } })
+    expect(save).toMatchObject({ version: 4, pool: 'extra', miniBosses: {}, xp: 540, badges: { 'boss-pass': today } })
     // Back-pay: Scrap for every correct answer already logged.
     expect(save.scrap).toBe(3 * SCRAP_CORRECT)
     expect(save.outpost).toEqual(emptyOutpost())
@@ -324,5 +324,67 @@ describe('outpost', () => {
     expect(save.badges['outpost-built']).toBeUndefined()
     const last = build(save, STRUCTURES.at(-1)!.id, today)
     expect(last.earned.map((b) => b.id)).toContain('outpost-built')
+  })
+})
+
+describe('mini bosses', () => {
+  const answerAll = (save: Save, correctCount: number) => {
+    save.activeBoss!.ids.forEach((id, i) => (save = answerBoss(save, i, i < correctCount ? QUESTIONS_BY_ID.get(id)!.correct : null)))
+    return save
+  }
+
+  it.each(POOL_ORDER.flatMap((p) => POOLS[p].subelements.map((se) => [p, se.id] as const)))('%s %s: 10 distinct questions spread evenly across groups', (pool, seId) => {
+    const se = POOLS[pool].subelements.find((s) => s.id === seId)!
+    const ids = buildMiniExam(se, POOLS[pool].questions, Math.random)
+    expect(ids.length).toBe(MINI_LENGTH)
+    expect(new Set(ids).size).toBe(MINI_LENGTH)
+    expect(ids.every((id) => id.startsWith(seId))).toBe(true)
+    const perGroup = se.groups.map((g) => ids.filter((id) => id.startsWith(g.id)).length)
+    const available = se.groups.map((g) => POOLS[pool].questions.filter((q) => q.group === g.id).length)
+    // Even spread: no group gets 2+ more than another unless it ran out of questions.
+    for (let a = 0; a < perGroup.length; a++)
+      for (let b = 0; b < perGroup.length; b++) if (perGroup[a] < available[a]) expect(perGroup[b] - perGroup[a]).toBeLessThanOrEqual(1)
+  })
+
+  it('uses every question when a sub-element has fewer than the mini boss length', () => {
+    const se = { id: 'X1', name: 'Tiny', examQuestions: 1, groups: [{ id: 'X1A', title: 'Tiny' }] }
+    const qs = [0, 1, 2].map((n) => ({ ...q, id: `X1A0${n}`, group: 'X1A', subelement: 'X1' }))
+    expect(buildMiniExam(se, qs, rng)).toEqual(['X1A00', 'X1A01', 'X1A02'])
+  })
+
+  it('passes at 8 of 10, the same 74% ratio as the real exams', () => {
+    expect(miniPassMark(10)).toBe(8)
+    let save = startMiniBoss(newSave(today), 'E7', today, rng)
+    const passed = submitBoss(answerAll(save, 8), today, rng)
+    expect(passed.outcome).toMatchObject({ subelement: 'E7', passMark: 8, score: { correct: 8, total: 10, passed: true } })
+    save = startMiniBoss(newSave(today), 'E7', today, rng)
+    expect(submitBoss(answerAll(save, 7), today, rng).outcome.score.passed).toBe(false)
+  })
+
+  it('records results per sub-element, apart from full boss history and badges', () => {
+    let save = startMiniBoss({ ...newSave(today), outpost: { ...emptyOutpost(), bunker: 3 } }, 'E1', today, rng)
+    const { save: after, outcome } = submitBoss(answerAll(save, 10), today, rng)
+    expect(after.bossHistory).toEqual([])
+    expect(after.badges['boss-pass']).toBeUndefined()
+    expect(after.badges['boss-perfect']).toBeUndefined()
+    expect(after.miniBosses.E1).toEqual({ attempts: 1, wins: 1, best: 10, total: 10, lastDate: today })
+    // Mini win bonus only; the Signal Bunker bonus is for full battles.
+    expect(outcome.scrap).toBe(10 * SCRAP_CORRECT + SCRAP_MINI_PASS)
+
+    save = startMiniBoss(after, 'E1', today, rng)
+    const again = submitBoss(answerAll(save, 3), today, rng).save
+    expect(again.miniBosses.E1).toMatchObject({ attempts: 2, wins: 1, best: 10 })
+  })
+
+  it('sends mini boss misses to the front of the study queue', () => {
+    let save = startMiniBoss(newSave(today), 'E3', today, rng)
+    const missed = save.activeBoss!.ids[0]
+    save = answerBoss(save, 0, (QUESTIONS_BY_ID.get(missed)!.correct + 1) % 4)
+    expect(submitBoss(save, today, rng).save.cards[missed]).toMatchObject({ stage: 'learning', missedPending: true })
+  })
+
+  it('only tests sub-elements from the selected pool', () => {
+    expect(() => startMiniBoss(newSave(today), 'T1', today, rng)).toThrow('not in the Extra pool')
+    expect(startMiniBoss(setPool(newSave(today), 'technician'), 'T1', today, rng).activeBoss!.ids.every((id) => id.startsWith('T1'))).toBe(true)
   })
 })

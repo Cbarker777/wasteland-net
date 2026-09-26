@@ -23,6 +23,7 @@ type State = {
   tick: () => void
   answerStudy: (id: string, choice: number) => game.AnswerOutcome
   startBoss: () => void
+  startMiniBoss: (subelement: SubelementId) => void
   answerBoss: (index: number, choice: number | null) => void
   abandonBoss: () => void
   submitBoss: () => game.BossOutcome
@@ -61,6 +62,7 @@ export const useGame = create<State>()(
         return r.outcome
       },
       startBoss: () => set((s) => ({ save: game.startBoss(s.save, today(), Math.random) })),
+      startMiniBoss: (subelement) => set((s) => ({ save: game.startMiniBoss(s.save, subelement, today(), Math.random), screen: 'boss' })),
       answerBoss: (index, choice) => set((s) => ({ save: game.answerBoss(s.save, index, choice) })),
       abandonBoss: () => set((s) => ({ save: game.abandonBoss(s.save) })),
       submitBoss: () => {

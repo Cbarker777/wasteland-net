@@ -40,6 +40,13 @@ export const SCRAP_GRADUATE_MEDIUM = 3
 export const SCRAP_GRADUATE_LONG = 5
 /** Paid once per passed boss battle, before any Signal Bunker bonus. */
 export const SCRAP_BOSS_PASS = 20
+/** Paid for winning a mini boss (a single sub-element test). */
+export const SCRAP_MINI_PASS = 8
+
+// ── Mini bosses ──
+export const MINI_LENGTH = 10
+/** Same ratio as the real exams (26/35, 37/50). */
+export const MINI_PASS_RATIO = 0.74
 
 // ── Streaks and badges ──
 /** Answers in a day for it to count toward the study streak. */

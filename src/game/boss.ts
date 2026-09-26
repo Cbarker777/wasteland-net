@@ -3,7 +3,8 @@
  * question from each of the pool's groups (35 for General, 50 for Extra),
  * which is what gives them the official per-sub-element distribution.
  */
-import type { Pool, Question, SubelementId } from '../data/pool'
+import type { Pool, Question, Subelement, SubelementId } from '../data/pool'
+import { MINI_LENGTH, MINI_PASS_RATIO } from './config'
 import type { Rng } from './srs'
 
 export function buildExam(pool: Pool, rng: Rng): string[] {
@@ -15,6 +16,31 @@ export function buildExam(pool: Pool, rng: Rng): string[] {
     }
   }
   return ids
+}
+
+/**
+ * Mini boss: a test on one sub-element, spread evenly across its question
+ * groups (round-robin, no repeats). Uses every question if there are fewer
+ * than `length`.
+ */
+export function buildMiniExam(se: Subelement, questions: readonly Question[], rng: Rng, length = MINI_LENGTH): string[] {
+  const byGroup = se.groups.map((g) => shuffle(questions.filter((q) => q.group === g.id).map((q) => q.id), rng))
+  const ids: string[] = []
+  for (let round = 0; ids.length < length && byGroup.some((g) => g.length > round); round++) {
+    for (const g of byGroup) if (round < g.length && ids.length < length) ids.push(g[round])
+  }
+  // Keep the exam in pool order, grouped the way the syllabus reads.
+  return ids.sort()
+}
+
+export const miniPassMark = (length: number) => Math.ceil(length * MINI_PASS_RATIO)
+
+function shuffle<T>(items: T[], rng: Rng): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+  return items
 }
 
 export type ExamScore = {
