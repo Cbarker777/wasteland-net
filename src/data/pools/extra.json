@@ -1,5 +1,11 @@
 {
+ "id": "extra",
+ "name": "Extra",
+ "element": 4,
  "version": "2024-2028 Extra pool, 4th errata (Feb 4, 2026)",
+ "validThrough": "2028-06-30",
+ "examLength": 50,
+ "passMark": 37,
  "subelements": [
   {
    "id": "E1",

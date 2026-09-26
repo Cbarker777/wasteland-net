@@ -1,8 +1,12 @@
 /**
  * The whole save file and the pure transitions on it. The Zustand store is a
  * thin wrapper around these, so everything here is testable without React.
+ *
+ * XP, rank, Supplies, and streaks belong to the survivor and are shared across
+ * pools. Skills, boss battles, and mastery badges belong to one pool. Question
+ * ids are unique across pools (G… vs E…), so one `cards` map holds both.
  */
-import { POOL, QUESTIONS_BY_ID, SUBELEMENT_ORDER, type SubelementId } from '../data/pool'
+import { ALL_SUBELEMENTS, POOL_ORDER, POOLS, QUESTIONS_BY_ID, type PoolId, type SubelementId } from '../data/pool'
 import { newlyEarned, type Badge } from './badges'
 import { buildExam, scoreExam, type ExamScore } from './boss'
 import { SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, XP_CORRECT, XP_GRADUATE_LONG, XP_GRADUATE_MEDIUM } from './config'
@@ -11,9 +15,11 @@ import { applyAnswer, type Cards, type Rng } from './srs'
 import { longestStreak, type DayLog } from './streak'
 import { decaySupplies, gainSupplies, initialSupplies, survivorDays, type Supplies } from './supplies'
 
-export const SAVE_VERSION = 1
+export const SAVE_VERSION = 2
+export const DEFAULT_POOL: PoolId = 'extra'
 
 export type BossRecord = {
+  pool: PoolId
   date: string
   correct: number
   total: number
@@ -21,11 +27,13 @@ export type BossRecord = {
   bySubelement: ExamScore['bySubelement']
 }
 
-export type ActiveBoss = { ids: string[]; answers: (number | null)[]; startedAt: string }
+export type ActiveBoss = { pool: PoolId; ids: string[]; answers: (number | null)[]; startedAt: string }
 
 export type Save = {
   version: typeof SAVE_VERSION
   createdAt: string
+  /** The pool the player is studying; scopes study, skills, and boss battles. */
+  pool: PoolId
   cards: Cards
   /** Study answers so far; learning cards are scheduled against this counter. */
   step: number
@@ -42,6 +50,7 @@ export function newSave(today: string): Save {
   return {
     version: SAVE_VERSION,
     createdAt: today,
+    pool: DEFAULT_POOL,
     cards: {},
     step: 0,
     xp: 0,
@@ -54,17 +63,30 @@ export function newSave(today: string): Save {
 }
 
 export const IDS_BY_SUBELEMENT: Record<SubelementId, string[]> = Object.fromEntries(
-  SUBELEMENT_ORDER.map((se) => [se, POOL.questions.filter((q) => q.subelement === se).map((q) => q.id)]),
-) as Record<SubelementId, string[]>
+  ALL_SUBELEMENTS.map((se) => [se, [...QUESTIONS_BY_ID.values()].filter((q) => q.subelement === se).map((q) => q.id)]),
+)
 
-export const ALL_IDS = POOL.questions.map((q) => q.id)
+export const IDS_BY_POOL: Record<PoolId, string[]> = {
+  general: POOLS.general.questions.map((q) => q.id),
+  extra: POOLS.extra.questions.map((q) => q.id),
+}
+
+export function bestBoss(save: Save, pool: PoolId): number | null {
+  const scores = save.bossHistory.filter((b) => b.pool === pool).map((b) => b.correct)
+  return scores.length ? Math.max(...scores) : null
+}
 
 function awardBadges(save: Save, today: string): { save: Save; earned: Badge[] } {
   const maxed = new Set<SubelementId>()
-  for (const se of SUBELEMENT_ORDER) if (skillBreakdown(IDS_BY_SUBELEMENT[se], save.cards).level >= SKILL_MAX_LEVEL) maxed.add(se)
+  for (const se of ALL_SUBELEMENTS) if (skillBreakdown(IDS_BY_SUBELEMENT[se], save.cards).level >= SKILL_MAX_LEVEL) maxed.add(se)
+  const best: Partial<Record<PoolId, number>> = {}
+  for (const p of POOL_ORDER) {
+    const b = bestBoss(save, p)
+    if (b !== null) best[p] = b
+  }
   const earned = newlyEarned(save.badges, {
     longestStreak: longestStreak(save.days),
-    bestBossScore: save.bossHistory.length ? Math.max(...save.bossHistory.map((b) => b.correct)) : null,
+    bestBossScore: best,
     maxedSkills: maxed,
     survivorDays: survivorDays(save.supplies, today),
   })
@@ -78,6 +100,10 @@ function awardBadges(save: Save, today: string): { save: Save; earned: Badge[] }
 export function tick(save: Save, today: string): { save: Save; earned: Badge[] } {
   const supplies = decaySupplies(save.supplies, today)
   return awardBadges(supplies === save.supplies ? save : { ...save, supplies }, today)
+}
+
+export function setPool(save: Save, pool: PoolId): Save {
+  return save.pool === pool ? save : { ...save, pool }
 }
 
 export type AnswerOutcome = {
@@ -135,9 +161,10 @@ export function answerStudy(save: Save, id: string, choice: number, today: strin
   }
 }
 
+/** Starts a boss battle on the save's current pool. */
 export function startBoss(save: Save, today: string, rng: Rng): Save {
-  const ids = buildExam(POOL.subelements, POOL.questions, rng)
-  return { ...save, activeBoss: { ids, answers: ids.map(() => null), startedAt: today } }
+  const ids = buildExam(POOLS[save.pool], rng)
+  return { ...save, activeBoss: { pool: save.pool, ids, answers: ids.map(() => null), startedAt: today } }
 }
 
 export function answerBoss(save: Save, index: number, choice: number | null): Save {
@@ -151,7 +178,7 @@ export function abandonBoss(save: Save): Save {
   return { ...save, activeBoss: null }
 }
 
-export type BossOutcome = { score: ExamScore; xp: number; supplies: number; rankUp: Rank | null; earned: Badge[] }
+export type BossOutcome = { pool: PoolId; score: ExamScore; xp: number; supplies: number; rankUp: Rank | null; earned: Badge[] }
 
 /**
  * Scores the battle and feeds every answer into spaced repetition: misses go
@@ -160,7 +187,7 @@ export type BossOutcome = { score: ExamScore; xp: number; supplies: number; rank
 export function submitBoss(save: Save, today: string, rng: Rng): { save: Save; outcome: BossOutcome } {
   const boss = save.activeBoss
   if (!boss) throw new Error('No boss battle in progress')
-  const score = scoreExam(boss.ids, boss.answers, QUESTIONS_BY_ID)
+  const score = scoreExam(boss.ids, boss.answers, QUESTIONS_BY_ID, POOLS[boss.pool].passMark)
 
   const cards = { ...save.cards }
   let xp = 0
@@ -185,20 +212,41 @@ export function submitBoss(save: Save, today: string, rng: Rng): { save: Save; o
     days: { ...save.days, [today]: (save.days[today] ?? 0) + answered },
     bossHistory: [
       ...save.bossHistory,
-      { date: today, correct: score.correct, total: score.total, passed: score.passed, bySubelement: score.bySubelement },
+      { pool: boss.pool, date: today, correct: score.correct, total: score.total, passed: score.passed, bySubelement: score.bySubelement },
     ],
     activeBoss: null,
   }
   const after = rankFor(next.xp)
   const awarded = awardBadges(next, today)
-  return { save: awarded.save, outcome: { score, xp, supplies, rankUp: after.index > before ? after.rank : null, earned: awarded.earned } }
+  return {
+    save: awarded.save,
+    outcome: { pool: boss.pool, score, xp, supplies, rankUp: after.index > before ? after.rank : null, earned: awarded.earned },
+  }
+}
+
+/**
+ * Brings an older save up to the current version. v1 was Extra-only, so
+ * everything in it belongs to the Extra pool.
+ */
+export function migrateSave(data: unknown): Save {
+  const s = data as Record<string, unknown> & Partial<Save>
+  if ((s.version as number) === 1) {
+    return {
+      ...(s as unknown as Save),
+      version: SAVE_VERSION,
+      pool: 'extra',
+      bossHistory: (s.bossHistory ?? []).map((b) => ({ ...b, pool: 'extra' as const })),
+      activeBoss: s.activeBoss ? { ...s.activeBoss, pool: 'extra' } : null,
+    }
+  }
+  return s as Save
 }
 
 /** Validates an imported save file just enough to not crash on it. */
 export function parseSave(json: string): Save {
-  const data = JSON.parse(json) as Partial<Save>
-  if (data.version !== SAVE_VERSION || typeof data.cards !== 'object' || typeof data.xp !== 'number' || !data.supplies) {
+  const data = JSON.parse(json) as Partial<Save> | null
+  if (!data || ((data.version as number) !== 1 && data.version !== SAVE_VERSION) || typeof data.cards !== 'object' || typeof data.xp !== 'number' || !data.supplies) {
     throw new Error('Not a Wasteland Net save file')
   }
-  return data as Save
+  return migrateSave(data)
 }

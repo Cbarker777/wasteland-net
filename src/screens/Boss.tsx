@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { POOL, QUESTIONS_BY_ID, SKILL_INFO, SUBELEMENT_ORDER } from '../data/pool'
-import { EXAM_LENGTH, EXAM_PASS } from '../game/config'
+import { POOLS, QUESTIONS_BY_ID, skillInfo } from '../data/pool'
 import type { BossOutcome } from '../game/save'
 import { useGame } from '../store'
 import { Button, Meter, Panel } from '../ui/kit'
@@ -17,21 +16,24 @@ export function Boss() {
 }
 
 function BossLobby() {
-  const history = useGame((s) => s.save.bossHistory)
+  const poolId = useGame((s) => s.save.pool)
+  const allHistory = useGame((s) => s.save.bossHistory)
+  const history = allHistory.filter((b) => b.pool === poolId)
+  const pool = POOLS[poolId]
   const start = useGame((s) => s.startBoss)
   const best = history.length ? Math.max(...history.map((b) => b.correct)) : null
   const passes = history.filter((b) => b.passed).length
 
   return (
     <div className="grid gap-4 md:grid-cols-5">
-      <Panel title="The Examiner" className="md:col-span-3">
+      <Panel title={`The Examiner · ${pool.name}`} className="md:col-span-3">
         <p className="font-read leading-relaxed text-sand">
-          A volunteer-examiner automaton still guards the old relay tower, and it answers to nobody. It asks 50 questions: one from every question group, the same
-          spread as the real Element 4 exam. You see no score until you submit. Land {EXAM_PASS} hits to bring it down.
+          A volunteer-examiner automaton still guards the old relay tower, and it answers to nobody. It asks {pool.examLength} questions: one from every question group, the
+          same spread as the real Element {pool.element} exam. You see no score until you submit. Land {pool.passMark} hits to bring it down.
         </p>
         <ul className="mt-4 grid grid-cols-5 gap-2 text-center text-xs">
-          {POOL.subelements.map((se) => (
-            <li key={se.id} className="rounded-sm bg-dust/60 py-2 ring-1 ring-line" title={SKILL_INFO[se.id].label}>
+          {pool.subelements.map((se) => (
+            <li key={se.id} className="rounded-sm bg-dust/60 py-2 ring-1 ring-line" title={skillInfo(se.id).label}>
               <div className="text-signal">{se.id}</div>
               <div className="text-sand-dim">×{se.examQuestions}</div>
             </li>
@@ -42,13 +44,15 @@ function BossLobby() {
         </Button>
       </Panel>
 
-      <Panel title="Battle record" right={history.length ? `${passes}/${history.length} won` : undefined} className="md:col-span-2">
+      <Panel title={`${pool.name} battle record`} right={history.length ? `${passes}/${history.length} won` : undefined} className="md:col-span-2">
         {history.length === 0 ? (
           <p className="text-sm text-sand-dim">No battles yet. Your first fight shows where you really stand.</p>
         ) : (
           <>
             <div className="mb-3 text-sm text-sand-dim">
-              Best: <span className="text-signal">{best}/50</span>
+              Best: <span className="text-signal">
+                {best}/{pool.examLength}
+              </span>
             </div>
             <ol className="grid gap-1.5 text-sm">
               {history
@@ -58,7 +62,7 @@ function BossLobby() {
                   <li key={i} className="flex items-center gap-3">
                     <span className="w-24 text-xs text-static">{b.date}</span>
                     <Meter value={b.correct} max={b.total} tone={b.passed ? 'rad' : 'rust'} className="flex-1" />
-                    <span className={`w-16 text-right ${b.passed ? 'text-rad' : 'text-rust'}`}>{b.correct}/50</span>
+                    <span className={`w-16 text-right ${b.passed ? 'text-rad' : 'text-rust'}`}>{b.correct}/{b.total}</span>
                   </li>
                 ))}
             </ol>
@@ -71,6 +75,8 @@ function BossLobby() {
 
 function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: string[]; answers: (number | null)[] }) => void }) {
   const boss = useGame((s) => s.save.activeBoss)!
+  const pool = POOLS[boss.pool]
+  const examLength = boss.ids.length
   const answer = useGame((s) => s.answerBoss)
   const submit = useGame((s) => s.submitBoss)
   const abandon = useGame((s) => s.abandonBoss)
@@ -90,7 +96,7 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      if (e.key === 'ArrowRight') setI((x) => Math.min(EXAM_LENGTH - 1, x + 1))
+      if (e.key === 'ArrowRight') setI((x) => Math.min(examLength - 1, x + 1))
       else if (e.key === 'ArrowLeft') setI((x) => Math.max(0, x - 1))
       else {
         const c = keyToChoice(e.key)
@@ -99,7 +105,7 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [choose])
+  }, [choose, examLength])
 
   const doSubmit = () => {
     const snapshot = { ids: boss.ids, answers: boss.answers }
@@ -108,13 +114,13 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-      <Panel title={`Boss battle · Question ${i + 1} of ${EXAM_LENGTH}`} right={`${answered}/${EXAM_LENGTH} answered`}>
+      <Panel title={`${pool.name} boss battle · Question ${i + 1} of ${examLength}`} right={`${answered}/${examLength} answered`}>
         <QuestionCard q={q} selected={boss.answers[i]} revealed={false} onSelect={choose} />
         <div className="mt-5 flex flex-wrap gap-2">
           <Button onClick={() => setI(i - 1)} disabled={i === 0}>
             ← Prev
           </Button>
-          <Button onClick={() => setI(i + 1)} disabled={i === EXAM_LENGTH - 1} variant={boss.answers[i] !== null ? 'primary' : 'ghost'}>
+          <Button onClick={() => setI(i + 1)} disabled={i === examLength - 1} variant={boss.answers[i] !== null ? 'primary' : 'ghost'}>
             Next →
           </Button>
           <span className="label ml-auto self-center !text-static">1–4 / A–D answer · ←/→ move</span>
@@ -139,7 +145,7 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
         <div className="mt-4 grid gap-2">
           {confirming === 'submit' ? (
             <div className="rounded-sm border border-signal-dim p-2 text-xs">
-              {EXAM_LENGTH - answered} unanswered. They count as misses.
+              {examLength - answered} unanswered. They count as misses.
               <div className="mt-2 flex gap-2">
                 <Button variant="primary" onClick={doSubmit} className="!px-2 !py-1 !text-xs">
                   Submit
@@ -150,7 +156,7 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
               </div>
             </div>
           ) : (
-            <Button variant="primary" onClick={() => (answered < EXAM_LENGTH ? setConfirming('submit') : doSubmit())}>
+            <Button variant="primary" onClick={() => (answered < examLength ? setConfirming('submit') : doSubmit())}>
               Submit for scoring
             </Button>
           )}
@@ -179,22 +185,23 @@ function Battle({ onFinish }: { onFinish: (r: { outcome: BossOutcome; ids: strin
 
 function BossResult({ outcome, ids, answers, onDone }: { outcome: BossOutcome; ids: string[]; answers: (number | null)[]; onDone: () => void }) {
   const { score } = outcome
+  const pool = POOLS[outcome.pool]
   const [showMissed, setShowMissed] = useState(false)
-  const hp = Math.max(0, EXAM_PASS - score.correct)
+  const hp = Math.max(0, pool.passMark - score.correct)
 
   return (
     <div className="grid gap-4">
-      <Panel title="Battle report">
+      <Panel title={`${pool.name} battle report`}>
         <div className="flex flex-wrap items-end gap-6">
           <div>
             <div className={`text-5xl font-bold ${score.passed ? 'text-rad glow-rad' : 'text-rust'}`}>{score.passed ? 'PASS' : 'FAIL'}</div>
             <div className="mt-1 text-sm text-sand-dim">
-              {score.correct}/{score.total} correct ({pct(score.correct, score.total)}%) · pass mark {EXAM_PASS}
+              {score.correct}/{score.total} correct ({pct(score.correct, score.total)}%) · pass mark {pool.passMark}
             </div>
           </div>
           <div className="min-w-56 flex-1">
             <div className="label mb-1">Examiner integrity</div>
-            <Meter value={hp} max={EXAM_PASS} tone="rust" className="!h-4" />
+            <Meter value={hp} max={pool.passMark} tone="rust" className="!h-4" />
             <div className="mt-1 text-xs text-sand-dim">
               {score.passed
                 ? score.correct === score.total
@@ -211,13 +218,13 @@ function BossResult({ outcome, ids, answers, onDone }: { outcome: BossOutcome; i
 
       <Panel title="By sub-element">
         <ul className="grid gap-2 sm:grid-cols-2">
-          {SUBELEMENT_ORDER.map((se) => {
+          {pool.subelements.map(({ id: se }) => {
             const row = score.bySubelement[se]!
             return (
               <li key={se} className="flex items-center gap-3 text-sm">
                 <span className="w-7 text-signal">{se}</span>
-                <span className="w-44 truncate text-xs text-sand-dim">{SKILL_INFO[se].label}</span>
-                <Meter value={row.correct} max={row.total} tone={row.correct === row.total ? 'rad' : row.correct / row.total >= 0.74 ? 'signal' : 'rust'} className="flex-1" />
+                <span className="w-44 truncate text-xs text-sand-dim">{skillInfo(se).label}</span>
+                <Meter value={row.correct} max={row.total} tone={row.correct === row.total ? 'rad' : row.correct / row.total >= pool.passMark / pool.examLength ? 'signal' : 'rust'} className="flex-1" />
                 <span className="w-10 text-right">
                   {row.correct}/{row.total}
                 </span>

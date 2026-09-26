@@ -1,4 +1,4 @@
-import { SKILL_INFO, SUBELEMENT_ORDER } from '../data/pool'
+import { POOLS, skillInfo, subelementIds } from '../data/pool'
 import { skillBreakdown, SKILL_MAX_LEVEL } from '../game/progression'
 import { IDS_BY_SUBELEMENT } from '../game/save'
 import { useGame } from '../store'
@@ -7,15 +7,16 @@ import { pct } from '../ui/util'
 
 export function Skills() {
   const cards = useGame((s) => s.save.cards)
+  const pool = useGame((s) => s.save.pool)
   const go = useGame((s) => s.go)
-  const rows = SUBELEMENT_ORDER.map((se) => ({ se, ...skillBreakdown(IDS_BY_SUBELEMENT[se], cards) }))
+  const rows = subelementIds(pool).map((se) => ({ se, ...skillBreakdown(IDS_BY_SUBELEMENT[se], cards) }))
   const touched = rows.filter((r) => r.level < SKILL_MAX_LEVEL)
   // Weak spots only mean something once there's progress to compare.
   const weakCutoff = touched.length && rows.some((r) => r.mastery > 0) ? [...touched].sort((a, b) => a.mastery - b.mastery)[Math.min(2, touched.length - 1)].mastery : -1
 
   return (
     <div className="grid gap-4">
-      <Panel title="Skill trees" right="Level 10 = every question in long-term review">
+      <Panel title={`${POOLS[pool].name} skill trees`} right="Level 10 = every question in long-term review">
         <div className="mb-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-sand-dim">
           <Legend cls="bg-static/60" label="Unseen" />
           <Legend cls="bg-signal" label="Training" />
@@ -30,11 +31,11 @@ export function Skills() {
                 <div>
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="text-signal">{r.se}</span>
-                    <span className="text-sm">{SKILL_INFO[r.se].label}</span>
+                    <span className="text-sm">{skillInfo(r.se).label}</span>
                     {weak && <span className="label whitespace-nowrap !text-rust">Weak spot</span>}
                     {r.level === SKILL_MAX_LEVEL && <span className="label !text-rad">Maxed</span>}
                   </div>
-                  <div className="text-xs text-static">{SKILL_INFO[r.se].flavor}</div>
+                  <div className="text-xs text-static">{skillInfo(r.se).flavor}</div>
                 </div>
                 <div>
                   <div className="mb-1 flex justify-between text-xs text-sand-dim">

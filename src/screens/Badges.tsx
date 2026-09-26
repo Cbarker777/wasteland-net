@@ -1,27 +1,21 @@
+import { POOL_ORDER, POOLS, type PoolId } from '../data/pool'
 import { BADGES, type Badge } from '../game/badges'
-import { EXAM_LENGTH, EXAM_PASS, SURVIVOR_DAYS } from '../game/config'
+import { SURVIVOR_DAYS } from '../game/config'
 import { skillBreakdown, SKILL_MAX_LEVEL } from '../game/progression'
-import { IDS_BY_SUBELEMENT, type Save } from '../game/save'
+import { bestBoss, IDS_BY_SUBELEMENT, type Save } from '../game/save'
 import { longestStreak } from '../game/streak'
 import { survivorDays } from '../game/supplies'
 import { today, useGame } from '../store'
 import { Meter, Panel } from '../ui/kit'
 
-const SECTIONS: { kind: Badge['kind']; title: string }[] = [
-  { kind: 'streak', title: 'Study streak' },
-  { kind: 'boss', title: 'Boss battle' },
-  { kind: 'survivor', title: 'Survival' },
-  { kind: 'mastery', title: 'Skill mastery' },
-]
-
 function progress(b: Badge, save: Save): [number, number] {
   switch (b.kind) {
     case 'streak':
       return [Math.min(longestStreak(save.days), b.streakDays!), b.streakDays!]
-    case 'boss': {
-      const best = save.bossHistory.length ? Math.max(...save.bossHistory.map((x) => x.correct)) : 0
-      return [best, b.id === 'boss-perfect' ? EXAM_LENGTH : EXAM_PASS]
-    }
+    case 'boss-pass':
+      return [bestBoss(save, b.pool!) ?? 0, POOLS[b.pool!].passMark]
+    case 'boss-perfect':
+      return [bestBoss(save, b.pool!) ?? 0, POOLS[b.pool!].examLength]
     case 'mastery':
       return [skillBreakdown(IDS_BY_SUBELEMENT[b.subelement!], save.cards).level, SKILL_MAX_LEVEL]
     case 'survivor':
@@ -32,16 +26,26 @@ function progress(b: Badge, save: Save): [number, number] {
 export function Badges() {
   const save = useGame((s) => s.save)
   const earnedCount = BADGES.filter((b) => save.badges[b.id]).length
+  // The selected pool's badges come first.
+  const pools: PoolId[] = [save.pool, ...POOL_ORDER.filter((p) => p !== save.pool)]
+
+  const sections: { title: string; badges: Badge[] }[] = [
+    { title: 'Survival and streaks', badges: BADGES.filter((b) => !b.pool) },
+    ...pools.flatMap((p) => [
+      { title: `${POOLS[p].name} boss battle`, badges: BADGES.filter((b) => b.pool === p && b.kind !== 'mastery') },
+      { title: `${POOLS[p].name} skill mastery`, badges: BADGES.filter((b) => b.pool === p && b.kind === 'mastery') },
+    ]),
+  ]
 
   return (
     <div className="grid gap-4">
       <p className="text-sm text-sand-dim">
         {earnedCount} of {BADGES.length} badges earned. Once you earn a badge, you keep it.
       </p>
-      {SECTIONS.map((sec) => (
-        <Panel key={sec.kind} title={sec.title}>
+      {sections.map((sec) => (
+        <Panel key={sec.title} title={sec.title}>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {BADGES.filter((b) => b.kind === sec.kind).map((b) => {
+            {sec.badges.map((b) => {
               const earned = save.badges[b.id]
               const [n, max] = progress(b, save)
               return (

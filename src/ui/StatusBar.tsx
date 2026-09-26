@@ -1,3 +1,4 @@
+import { POOLS } from '../data/pool'
 import { DAILY_GOAL, SUPPLIES_LOW } from '../game/config'
 import { rankFor } from '../game/progression'
 import { currentStreak } from '../game/streak'
@@ -32,6 +33,7 @@ export function StatusBar() {
           <button onClick={() => go('base')} className="flex items-center gap-2 text-left" aria-label="Wasteland Net home">
             <Antenna />
             <span className="text-lg font-bold tracking-[0.2em] text-signal glow">WASTELAND NET</span>
+            <span className="rounded-sm px-1.5 py-0.5 text-[10px] tracking-[0.14em] text-signal uppercase ring-1 ring-signal-dim">{POOLS[save.pool].name}</span>
           </button>
 
           <div className="grid w-full grid-cols-3 gap-3 sm:ml-auto sm:w-auto sm:max-w-xl sm:flex-1 sm:gap-4">

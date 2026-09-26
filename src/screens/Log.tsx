@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react'
-import { POOL } from '../data/pool'
+import { Fragment, useRef, useState } from 'react'
+import { POOL_ORDER, POOLS } from '../data/pool'
 import {
   DAILY_GOAL,
-  EXAM_PASS,
   GRADUATE_STREAK,
   LONG_FIRST_DAYS,
   MEDIUM_INTERVALS_DAYS,
@@ -14,6 +13,7 @@ import {
   SUPPLIES_RECOVERY_BONUS,
   XP_CORRECT,
 } from '../game/config'
+import { IDS_BY_POOL } from '../game/save'
 import { longestStreak } from '../game/streak'
 import { today, useGame } from '../store'
 import { Button, Panel } from '../ui/kit'
@@ -59,10 +59,14 @@ export function Log() {
           <dd>{seen.toLocaleString()}</dd>
           <dt className="text-sand-dim">Accuracy</dt>
           <dd>{seen ? `${pct(correct, seen)}%` : '—'}</dd>
-          <dt className="text-sand-dim">Questions seen</dt>
-          <dd>
-            {cards.length} / {POOL.questions.length}
-          </dd>
+          {POOL_ORDER.map((p) => (
+            <Fragment key={p}>
+              <dt className="text-sand-dim">{POOLS[p].name} seen</dt>
+              <dd>
+                {IDS_BY_POOL[p].filter((id) => save.cards[id]).length} / {POOLS[p].questions.length}
+              </dd>
+            </Fragment>
+          ))}
           <dt className="text-sand-dim">Longest streak</dt>
           <dd>{longestStreak(save.days)} days</dd>
           <dt className="text-sand-dim">Boss battles</dt>
@@ -70,7 +74,9 @@ export function Log() {
           <dt className="text-sand-dim">On the air since</dt>
           <dd>{save.createdAt}</dd>
         </dl>
-        <p className="mt-4 text-xs text-static">Question pool: {POOL.version}. Source: NCVEC, public domain.</p>
+        <p className="mt-4 text-xs text-static">
+          Question pools: {POOL_ORDER.map((p) => POOLS[p].version).join('; ')}. Source: NCVEC, public domain.
+        </p>
       </Panel>
 
       <Panel title="Save file">
@@ -126,7 +132,9 @@ export function Log() {
             that happens.
           </Rule>
           <Rule title="Boss battle">
-            50 questions, one from each question group, matching the real Element 4 exam. {EXAM_PASS} correct passes. Misses go straight into your study queue. A day
+            One question from each question group, matching the real exam: General is {POOLS.general.examLength} questions with {POOLS.general.passMark} to pass,
+            Extra is {POOLS.extra.examLength} with {POOLS.extra.passMark}. Misses go straight into your study queue. XP, rank, Supplies, and streaks are shared
+            across pools; skills, boss battles, and mastery badges belong to the pool you pick on Base. A day
             counts toward your streak once you answer {DAILY_GOAL} questions.
           </Rule>
         </div>

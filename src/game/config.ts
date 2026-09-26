@@ -41,6 +41,4 @@ export const STREAK_BADGES = [7, 30, 100]
 /** Consecutive days with Supplies above zero for the survivor badge. */
 export const SURVIVOR_DAYS = 30
 
-// ── Boss battle ──
-export const EXAM_LENGTH = 50
-export const EXAM_PASS = 37
+// Boss battle length and pass mark come from each pool (src/data/pools/*.json).

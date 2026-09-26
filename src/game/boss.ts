@@ -1,17 +1,16 @@
 /**
- * Boss battle: a simulated Element 4 exam. The real exam draws exactly one
- * question from each of the pool's 50 groups, which is what gives it the
- * official per-sub-element distribution (E1 6, E2 5, E3 3, … E0 1).
+ * Boss battle: a simulated license exam. The real exams draw exactly one
+ * question from each of the pool's groups (35 for General, 50 for Extra),
+ * which is what gives them the official per-sub-element distribution.
  */
-import type { Question, Subelement, SubelementId } from '../data/pool'
-import { EXAM_PASS } from './config'
+import type { Pool, Question, SubelementId } from '../data/pool'
 import type { Rng } from './srs'
 
-export function buildExam(subelements: readonly Subelement[], questions: readonly Question[], rng: Rng): string[] {
+export function buildExam(pool: Pool, rng: Rng): string[] {
   const ids: string[] = []
-  for (const se of subelements) {
+  for (const se of pool.subelements) {
     for (const g of se.groups) {
-      const options = questions.filter((q) => q.group === g.id)
+      const options = pool.questions.filter((q) => q.group === g.id)
       ids.push(options[Math.floor(rng() * options.length)].id)
     }
   }
@@ -26,7 +25,12 @@ export type ExamScore = {
   missed: string[]
 }
 
-export function scoreExam(ids: readonly string[], answers: readonly (number | null)[], byId: ReadonlyMap<string, Question>): ExamScore {
+export function scoreExam(
+  ids: readonly string[],
+  answers: readonly (number | null)[],
+  byId: ReadonlyMap<string, Question>,
+  passMark: number,
+): ExamScore {
   const score: ExamScore = { correct: 0, total: ids.length, passed: false, bySubelement: {}, missed: [] }
   ids.forEach((id, i) => {
     const q = byId.get(id)!
@@ -37,6 +41,6 @@ export function scoreExam(ids: readonly string[], answers: readonly (number | nu
       row.correct++
     } else score.missed.push(id)
   })
-  score.passed = score.correct >= EXAM_PASS
+  score.passed = score.correct >= passMark
   return score
 }

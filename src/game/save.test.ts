@@ -1,40 +1,63 @@
 import { describe, expect, it } from 'vitest'
-import { POOL, QUESTIONS_BY_ID } from '../data/pool'
-import { answerBoss, answerStudy, IDS_BY_SUBELEMENT, newSave, parseSave, startBoss, submitBoss, tick, type Save } from './save'
+import { POOLS, QUESTIONS_BY_ID } from '../data/pool'
+import { answerBoss, answerStudy, IDS_BY_POOL, IDS_BY_SUBELEMENT, newSave, parseSave, setPool, startBoss, submitBoss, tick, type Save } from './save'
 import { addDays } from './dates'
 import { buildExam } from './boss'
 import { rankFor, skillBreakdown, RANKS } from './progression'
 import { currentStreak, longestStreak } from './streak'
 import { dailyDecay, decaySupplies, initialSupplies } from './supplies'
-import { DAILY_GOAL, EXAM_LENGTH, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
+import { DAILY_GOAL, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
 
 const today = '2026-09-26'
 const rng = () => 0
-const q = POOL.questions[0]
+const q = POOLS.extra.questions[0]
 const wrong = (q.correct + 1) % 4
 
-describe('question pool', () => {
-  it('has all ten sub-elements with the official exam distribution', () => {
-    expect(POOL.subelements.map((s) => `${s.id}:${s.examQuestions}`)).toEqual([
+describe('question pools', () => {
+  it('Extra has all ten sub-elements with the official exam distribution', () => {
+    expect(POOLS.extra.subelements.map((s) => `${s.id}:${s.examQuestions}`)).toEqual([
       'E1:6', 'E2:5', 'E3:3', 'E4:5', 'E5:4', 'E6:6', 'E7:8', 'E8:4', 'E9:8', 'E0:1',
     ])
-    expect(POOL.questions.length).toBe(599)
+    expect(POOLS.extra.questions.length).toBe(599)
+    expect(POOLS.extra).toMatchObject({ element: 4, examLength: 50, passMark: 37 })
+  })
+
+  it('General has all ten sub-elements with the official exam distribution', () => {
+    expect(POOLS.general.subelements.map((s) => `${s.id}:${s.examQuestions}`)).toEqual([
+      'G1:5', 'G2:5', 'G3:3', 'G4:5', 'G5:3', 'G6:2', 'G7:3', 'G8:3', 'G9:4', 'G0:2',
+    ])
+    expect(POOLS.general.questions.length).toBe(423)
+    expect(POOLS.general).toMatchObject({ element: 3, examLength: 35, passMark: 26 })
   })
 
   it('does not contain withdrawn questions', () => {
-    for (const id of ['E2A13', 'E4D05', 'E6D07', 'E9E10']) expect(QUESTIONS_BY_ID.has(id)).toBe(false)
+    const withdrawn = ['E2A13', 'E4D05', 'E6D07', 'E9E10', 'G1A04', 'G1C08', 'G1C09', 'G1C10', 'G1E09', 'G6B09', 'G8C01', 'G9C06', 'G9D13']
+    for (const id of withdrawn) expect(QUESTIONS_BY_ID.has(id)).toBe(false)
+  })
+
+  it('keeps each pool to its own questions', () => {
+    expect(IDS_BY_POOL.general.every((id) => id.startsWith('G'))).toBe(true)
+    expect(IDS_BY_POOL.extra.every((id) => id.startsWith('E'))).toBe(true)
   })
 })
 
 describe('boss exam', () => {
-  it('draws one question per group, 50 total, matching the sub-element distribution', () => {
-    const ids = buildExam(POOL.subelements, POOL.questions, Math.random)
-    expect(ids.length).toBe(EXAM_LENGTH)
-    expect(new Set(ids.map((id) => QUESTIONS_BY_ID.get(id)!.group)).size).toBe(50)
-    for (const se of POOL.subelements) expect(ids.filter((id) => id.startsWith(se.id)).length).toBe(se.examQuestions)
+  it.each(['general', 'extra'] as const)('%s draws one question per group, matching the sub-element distribution', (pool) => {
+    const p = POOLS[pool]
+    const ids = buildExam(p, Math.random)
+    expect(ids.length).toBe(p.examLength)
+    expect(new Set(ids.map((id) => QUESTIONS_BY_ID.get(id)!.group)).size).toBe(p.examLength)
+    for (const se of p.subelements) expect(ids.filter((id) => id.startsWith(se.id)).length).toBe(se.examQuestions)
   })
 
-  it('passes at 37 and fails at 36', () => {
+  it('uses the selected pool', () => {
+    const save = startBoss(setPool(newSave(today), 'general'), today, rng)
+    expect(save.activeBoss!.pool).toBe('general')
+    expect(save.activeBoss!.ids.length).toBe(35)
+    expect(save.activeBoss!.ids.every((id) => id.startsWith('G'))).toBe(true)
+  })
+
+  it('Extra passes at 37 and fails at 36', () => {
     let save = startBoss(newSave(today), today, rng)
     const ids = save.activeBoss!.ids
     ids.forEach((id, i) => (save = answerBoss(save, i, i < 37 ? QUESTIONS_BY_ID.get(id)!.correct : null)))
@@ -42,9 +65,24 @@ describe('boss exam', () => {
     expect(passed.outcome.score).toMatchObject({ correct: 37, passed: true })
     expect(passed.save.badges['boss-pass']).toBe(today)
     expect(passed.save.badges['boss-perfect']).toBeUndefined()
+    expect(passed.save.badges['general-boss-pass']).toBeUndefined()
 
     save = answerBoss(save, 36, null)
     expect(submitBoss(save, today, rng).outcome.score).toMatchObject({ correct: 36, passed: false })
+  })
+
+  it('General passes at 26 and earns its own badges', () => {
+    let save = startBoss(setPool(newSave(today), 'general'), today, rng)
+    const ids = save.activeBoss!.ids
+    ids.forEach((id, i) => (save = answerBoss(save, i, i < 26 ? QUESTIONS_BY_ID.get(id)!.correct : null)))
+    const passed = submitBoss(save, today, rng)
+    expect(passed.outcome.score).toMatchObject({ correct: 26, total: 35, passed: true })
+    expect(passed.save.bossHistory.at(-1)!.pool).toBe('general')
+    expect(passed.save.badges['general-boss-pass']).toBe(today)
+    expect(passed.save.badges['boss-pass']).toBeUndefined()
+
+    save = answerBoss(save, 25, null)
+    expect(submitBoss(save, today, rng).outcome.score.passed).toBe(false)
   })
 
   it('sends missed boss questions straight to the front of the study queue', () => {
@@ -56,7 +94,7 @@ describe('boss exam', () => {
     expect(after.activeBoss).toBeNull()
   })
 
-  it('awards the perfect badge for 50/50', () => {
+  it('awards the perfect badge for a clean sweep', () => {
     let save = startBoss(newSave(today), today, rng)
     save.activeBoss!.ids.forEach((id, i) => (save = answerBoss(save, i, QUESTIONS_BY_ID.get(id)!.correct)))
     expect(submitBoss(save, today, rng).save.badges['boss-perfect']).toBe(today)
@@ -155,6 +193,26 @@ describe('ranks and skills', () => {
 })
 
 describe('save files', () => {
+  it('migrates an Extra-only v1 save without losing anything', () => {
+    const v1 = {
+      version: 1,
+      createdAt: today,
+      cards: { E1A01: { stage: 'medium', streak: 3, reviews: 0, dueStep: 0, dueDate: today, missedPending: false, seen: 3, correct: 3 } },
+      step: 3,
+      xp: 540,
+      supplies: { amount: 90, lastDecayDate: today, positiveSince: today },
+      days: { [today]: 3 },
+      bossHistory: [{ date: today, correct: 42, total: 50, passed: true, bySubelement: {} }],
+      activeBoss: null,
+      badges: { 'boss-pass': today },
+    }
+    const save = parseSave(JSON.stringify(v1))
+    expect(save).toMatchObject({ version: 2, pool: 'extra', xp: 540, badges: { 'boss-pass': today } })
+    expect(save.bossHistory[0].pool).toBe('extra')
+    expect(save.cards.E1A01.stage).toBe('medium')
+  })
+
+
   it('round-trips through JSON and rejects junk', () => {
     const save = answerStudy(newSave(today), q.id, q.correct, today, rng).save
     expect(parseSave(JSON.stringify(save))).toEqual(save)

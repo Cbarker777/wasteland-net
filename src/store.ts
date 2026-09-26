@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { SubelementId } from './data/pool'
+import type { PoolId, SubelementId } from './data/pool'
 import type { Badge } from './game/badges'
 import { dateKey } from './game/dates'
 import type { Rank } from './game/progression'
@@ -18,6 +18,7 @@ type State = {
   toasts: Toast[]
   go: (screen: Screen, focus?: Focus) => void
   setFocus: (focus: Focus) => void
+  setPool: (pool: PoolId) => void
   tick: () => void
   answerStudy: (id: string, choice: number) => game.AnswerOutcome
   startBoss: () => void
@@ -47,6 +48,7 @@ export const useGame = create<State>()(
       toasts: [],
       go: (screen, focus) => set((s) => ({ screen, focus: focus ?? s.focus })),
       setFocus: (focus) => set({ focus }),
+      setPool: (pool) => set((s) => ({ save: game.setPool(s.save, pool), focus: 'all' })),
       tick: () => {
         const r = game.tick(get().save, today())
         if (r.save !== get().save) set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.earned, null)] }))
@@ -75,6 +77,10 @@ export const useGame = create<State>()(
       name: 'wasteland-net-save',
       version: game.SAVE_VERSION,
       partialize: (s) => ({ save: s.save }),
+      migrate: (persisted) => {
+        const p = persisted as { save: unknown }
+        return { save: game.migrateSave(p.save) }
+      },
     },
   ),
 )

@@ -1,4 +1,4 @@
-import { SKILL_INFO, type Question } from '../data/pool'
+import { skillInfo, type Question } from '../data/pool'
 
 const LETTERS = ['A', 'B', 'C', 'D']
 
@@ -23,7 +23,7 @@ export function QuestionCard({
     <article>
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="rounded-sm bg-panel-2 px-2 py-0.5 text-xs text-signal ring-1 ring-line">{q.id}</span>
-        <span className="label">{SKILL_INFO[q.subelement].label}</span>
+        <span className="label">{skillInfo(q.subelement).label}</span>
         {q.refs && <span className="label !text-static">§ {q.refs}</span>}
         {tag && <span className="ml-auto">{tag}</span>}
       </div>

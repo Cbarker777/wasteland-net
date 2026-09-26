@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { QUESTIONS_BY_ID, SKILL_INFO, SUBELEMENT_ORDER } from '../data/pool'
+import { poolOf, POOLS, QUESTIONS_BY_ID, skillInfo, subelementIds } from '../data/pool'
 import { GRADUATE_STREAK, MISS_REQUEUE_MAX, MISS_REQUEUE_MIN } from '../game/config'
 import { skillBreakdown } from '../game/progression'
-import { ALL_IDS, IDS_BY_SUBELEMENT, type AnswerOutcome } from '../game/save'
+import { IDS_BY_POOL, IDS_BY_SUBELEMENT, type AnswerOutcome } from '../game/save'
 import { pickNext, type Pick } from '../game/srs'
 import { today, useGame, type Focus } from '../store'
 import { Button, Panel } from '../ui/kit'
@@ -13,6 +13,7 @@ export function Study() {
   const focus = useGame((s) => s.focus)
   const setFocus = useGame((s) => s.setFocus)
   const cards = useGame((s) => s.save.cards)
+  const pool = useGame((s) => s.save.pool)
   const answer = useGame((s) => s.answerStudy)
 
   const [current, setCurrent] = useState<Pick | null>(null)
@@ -23,7 +24,8 @@ export function Study() {
 
   const next = useCallback(() => {
     const { save, focus } = useGame.getState()
-    const ids = focus === 'all' ? ALL_IDS : IDS_BY_SUBELEMENT[focus]
+    // Only the selected pool: a sub-element focus from another pool falls back to the whole pool.
+    const ids = focus !== 'all' && poolOf(focus) === save.pool ? IDS_BY_SUBELEMENT[focus] : IDS_BY_POOL[save.pool]
     const pick = pickNext(ids, save.cards, { step: save.step + 1, today: today(), rng: Math.random, lastId: lastId.current })
     lastId.current = pick?.id ?? null
     setCurrent(pick)
@@ -31,7 +33,7 @@ export function Study() {
     setOutcome(null)
   }, [])
 
-  useEffect(next, [focus, next])
+  useEffect(next, [focus, pool, next])
 
   const choose = useCallback(
     (choice: number) => {
@@ -74,10 +76,10 @@ export function Study() {
           onChange={(e) => setFocus(e.target.value as Focus)}
           className="rounded-sm border border-line bg-panel px-2 py-1.5 text-sm text-sand"
         >
-          <option value="all">All sub-elements</option>
-          {SUBELEMENT_ORDER.map((se) => (
+          <option value="all">All {POOLS[pool].name} sub-elements</option>
+          {subelementIds(pool).map((se) => (
             <option key={se} value={se}>
-              {se} · {SKILL_INFO[se].label} (Lv {skillBreakdown(IDS_BY_SUBELEMENT[se], cards).level})
+              {se} · {skillInfo(se).label} (Lv {skillBreakdown(IDS_BY_SUBELEMENT[se], cards).level})
             </option>
           ))}
         </select>

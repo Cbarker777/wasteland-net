@@ -1,14 +1,18 @@
 # Wasteland Net
 
-A gamified study tool for the FCC **Amateur Extra** license exam (Element 4). The grid is down, and your radio knowledge is what keeps your survivor fed, powered, and connected.
+A gamified study tool for the FCC **General** (Element 3) and **Amateur Extra** (Element 4) license exams. The grid is down, and your radio knowledge is what keeps your survivor fed, powered, and connected.
 
-- **Official question pool.** All 599 active questions from the NCVEC 2024–2028 Extra pool, current through the 4th errata (Feb 4, 2026), with the pool's diagrams.
+- **Official question pools.** Pick one on the Base screen and study, skills, and boss battles all use it:
+  - **General:** all 423 active questions from the NCVEC 2023–2027 pool, current through the 6th errata (Feb 4, 2026).
+  - **Extra:** all 599 active questions from the NCVEC 2024–2028 pool, current through the 4th errata (Feb 4, 2026).
+
+  Both include the pools' diagrams. XP, rank, Supplies, and streaks are shared across pools.
 - **Spaced repetition.** Missed questions come back within 3–5 questions. Three correct in a row moves a question to the medium-term pool. Continued success moves it to a long-term pool that still resurfaces now and then.
 - **Survivor rank.** XP from correct answers moves you through Scavenger → Signal Runner → Relay Keeper → Net Control → Wasteland Elmer.
-- **Ten skill trees.** Each sub-element (E1–E9, E0) levels up on its own. The Skills screen shows your strengths and weak spots.
+- **Ten skill trees per pool.** Each sub-element (G1–G0 or E1–E0) levels up on its own. The Skills screen shows your strengths and weak spots.
 - **Supplies.** They decay a little every day. Correct answers restock them, and fixing a question you missed pays a bonus. Wrong answers never cost anything. Running out puts the radio in a low-power state until you study again. It is never game over.
-- **Boss battle.** A 50-question simulated exam that draws one question from each group, matching the real sub-element distribution. 37 correct passes.
-- **Badges.** Study streaks (7/30/100 days), passing and perfect boss battles, mastery of each of the ten sub-elements, and a survivor badge for 30 straight days with Supplies above zero.
+- **Boss battle.** A simulated exam that draws one question from each group, matching the real sub-element distribution. General is 35 questions (26 to pass), Extra is 50 (37 to pass).
+- **Badges.** Study streaks (7/30/100 days), passing and perfect boss battles and sub-element mastery for each pool, and a survivor badge for 30 straight days with Supplies above zero.
 
 ## Run it on Unraid
 
@@ -55,17 +59,17 @@ npm run build
 ```
 
 - `src/game/` holds all game rules as pure functions with tests: spaced repetition (`srs.ts`), rank and skills (`progression.ts`), Supplies, streaks, boss exam, badges, and save transitions (`save.ts`). Every tunable number is in `config.ts`.
-- `src/data/pool.json` is generated from the official pool and should not be edited by hand.
+- `src/data/pools/*.json` are generated from the official pools and should not be edited by hand.
 
-### Updating the question pool
+### Updating the question pools
 
-NCVEC publishes the pool and its errata at <https://www.ncvec.org/index.php/2024-2028-extra-class-question-pool-release>. When a new errata comes out:
+NCVEC publishes the pools and their errata at <https://www.ncvec.org/index.php/amateur-question-pools>. When a new errata comes out:
 
 1. Save the new `.docx` in `pool-source/`.
-2. Point `SOURCE_DOCX` in `scripts/ingest-pool.ts` at it and update `POOL_VERSION`.
+2. Update that pool's entry in `POOLS` in `scripts/ingest-pool.ts` (`docx` and `version`).
 3. Run `npm run ingest:pool`. It validates every question, group, and figure and fails loudly if anything is off.
 4. Run `npm test` and commit.
 
-The next pool (2028–2032) will take effect July 1, 2028. Its figure order may change, so check `FIGURE_ORDER` in the ingest script against the new diagrams.
+The General pool expires June 30, 2027, and the Extra pool expires June 30, 2028. A new pool may change its figures, so check each pool's `figures` list in the ingest script against the new diagrams.
 
 Question pool text is public domain, published by the NCVEC Question Pool Committee.
