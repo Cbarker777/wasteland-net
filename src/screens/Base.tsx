@@ -1,5 +1,6 @@
 import { POOL_ORDER, POOLS, skillInfo, subelementIds, type PoolId } from '../data/pool'
 import { DAILY_GOAL } from '../game/config'
+import { perks, structuresBuilt, STRUCTURES } from '../game/outpost'
 import { rankFor, RANKS, skillBreakdown, SKILL_MAX_LEVEL } from '../game/progression'
 import { bestBoss, IDS_BY_POOL, IDS_BY_SUBELEMENT } from '../game/save'
 import { dueCount } from '../game/srs'
@@ -7,6 +8,7 @@ import { currentStreak } from '../game/streak'
 import { dailyDecay, daysOfSupplies } from '../game/supplies'
 import { today, useGame } from '../store'
 import { Button, Meter, Panel, Segments } from '../ui/kit'
+import { OutpostScene } from '../ui/OutpostScene'
 
 export function Base() {
   const save = useGame((s) => s.save)
@@ -25,10 +27,26 @@ export function Base() {
   const best = bestBoss(save, save.pool)
   const streak = currentStreak(save.days, t)
   const todayCount = save.days[t] ?? 0
+  const decayMul = perks(save.outpost).decayMultiplier
+  const built = structuresBuilt(save.outpost)
 
   return (
     <div className="grid gap-4 md:grid-cols-5">
       <PoolSelector />
+
+      <Panel title="Outpost" right={`${save.scrap.toLocaleString()} scrap`} className="md:col-span-5">
+        <button onClick={() => go('outpost')} className="block w-full overflow-hidden rounded-sm ring-1 ring-line hover:ring-signal-dim" aria-label="Open the outpost">
+          <OutpostScene outpost={save.outpost} powered={save.supplies.amount > 0} />
+        </button>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className="min-w-0 flex-1 text-xs text-sand-dim">
+            {built === 0
+              ? 'Six empty plots. Correct answers bring back Scrap to build with.'
+              : `${built} of ${STRUCTURES.length} structures built.`}
+          </span>
+          <Button onClick={() => go('outpost')}>Build & upgrade</Button>
+        </div>
+      </Panel>
 
       <Panel title="Survivor" right={`Rank ${r.index + 1} of ${RANKS.length}`} className="md:col-span-3">
         <div className="text-3xl font-bold text-signal glow">{r.rank.name.toUpperCase()}</div>
@@ -60,7 +78,7 @@ export function Base() {
           <>
             <div className="text-3xl font-bold text-rad glow-rad">{save.supplies.amount.toLocaleString()}</div>
             <p className="mt-1 text-sm text-sand-dim">
-              Losing {dailyDecay(save.supplies.amount)} per day. Lasts about {daysOfSupplies(save.supplies.amount)} days without study.
+              Losing {dailyDecay(save.supplies.amount, decayMul)} per day. Lasts about {daysOfSupplies(save.supplies.amount, decayMul)} days without study.
             </p>
           </>
         )}

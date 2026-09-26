@@ -12,8 +12,9 @@ A gamified study tool for the FCC **Technician** (Element 2), **General** (Eleme
 - **Survivor rank.** XP from correct answers moves you through Scavenger → Signal Runner → Relay Keeper → Net Control → Wasteland Elmer.
 - **Ten skill trees per pool.** Each sub-element (T1–T0, G1–G0, or E1–E0) levels up on its own. The Skills screen shows your strengths and weak spots.
 - **Supplies.** They decay a little every day. Correct answers restock them, and fixing a question you missed pays a bonus. Wrong answers never cost anything. Running out puts the radio in a low-power state until you study again. It is never game over.
+- **Outpost.** Correct answers also bring back Scrap, a building material that never decays. Spend it to build and upgrade six structures (Radio Tower, Water Purifier, Greenhouse, Field Clinic, Solar Array, Signal Bunker). Each one changes the outpost scene and adds a small Supplies or Scrap perk. None of them make questions easier.
 - **Boss battle.** A simulated exam that draws one question from each group, matching the real sub-element distribution. Technician and General are 35 questions (26 to pass), Extra is 50 (37 to pass).
-- **Badges.** Study streaks (7/30/100 days), passing and perfect boss battles and sub-element mastery for each pool, and a survivor badge for 30 straight days with Supplies above zero.
+- **Badges.** Study streaks (7/30/100 days), building and maxing the outpost, passing and perfect boss battles and sub-element mastery for each pool, and a survivor badge for 30 straight days with Supplies above zero.
 
 ## Run it on Unraid
 
@@ -59,7 +60,7 @@ npm run lint
 npm run build
 ```
 
-- `src/game/` holds all game rules as pure functions with tests: spaced repetition (`srs.ts`), rank and skills (`progression.ts`), Supplies, streaks, boss exam, badges, and save transitions (`save.ts`). Every tunable number is in `config.ts`.
+- `src/game/` holds all game rules as pure functions with tests: spaced repetition (`srs.ts`), rank and skills (`progression.ts`), the outpost (`outpost.ts`), Supplies, streaks, boss exam, badges, and save transitions (`save.ts`). Every tunable number is in `config.ts`.
 - `src/data/pools/*.json` are generated from the official pools and should not be edited by hand.
 
 ### Updating the question pools

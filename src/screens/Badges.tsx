@@ -1,6 +1,7 @@
 import { POOL_ORDER, POOLS, type PoolId } from '../data/pool'
 import { BADGES, type Badge } from '../game/badges'
 import { SURVIVOR_DAYS } from '../game/config'
+import { STRUCTURES, structuresBuilt, structuresMaxed } from '../game/outpost'
 import { skillBreakdown, SKILL_MAX_LEVEL } from '../game/progression'
 import { bestBoss, IDS_BY_SUBELEMENT, type Save } from '../game/save'
 import { longestStreak } from '../game/streak'
@@ -20,6 +21,10 @@ function progress(b: Badge, save: Save): [number, number] {
       return [skillBreakdown(IDS_BY_SUBELEMENT[b.subelement!], save.cards).level, SKILL_MAX_LEVEL]
     case 'survivor':
       return [Math.min(survivorDays(save.supplies, today()), SURVIVOR_DAYS), SURVIVOR_DAYS]
+    case 'outpost-built':
+      return [structuresBuilt(save.outpost), STRUCTURES.length]
+    case 'outpost-maxed':
+      return [structuresMaxed(save.outpost), STRUCTURES.length]
   }
 }
 
@@ -30,7 +35,7 @@ export function Badges() {
   const pools: PoolId[] = [save.pool, ...POOL_ORDER.filter((p) => p !== save.pool)]
 
   const sections: { title: string; badges: Badge[] }[] = [
-    { title: 'Survival and streaks', badges: BADGES.filter((b) => !b.pool) },
+    { title: 'Survival, streaks, and outpost', badges: BADGES.filter((b) => !b.pool) },
     ...pools.flatMap((p) => [
       { title: `${POOLS[p].name} boss battle`, badges: BADGES.filter((b) => b.pool === p && b.kind !== 'mastery') },
       { title: `${POOLS[p].name} skill mastery`, badges: BADGES.filter((b) => b.pool === p && b.kind === 'mastery') },

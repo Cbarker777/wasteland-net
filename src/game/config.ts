@@ -34,6 +34,13 @@ export const SUPPLIES_DECAY_PERCENT = 0.02
 /** Below this, the status bar warns that supplies are running low. */
 export const SUPPLIES_LOW = 25
 
+// ── Scrap (building material for the outpost; never decays) ──
+export const SCRAP_CORRECT = 2
+export const SCRAP_GRADUATE_MEDIUM = 3
+export const SCRAP_GRADUATE_LONG = 5
+/** Paid once per passed boss battle, before any Signal Bunker bonus. */
+export const SCRAP_BOSS_PASS = 20
+
 // ── Streaks and badges ──
 /** Answers in a day for it to count toward the study streak. */
 export const DAILY_GOAL = 10

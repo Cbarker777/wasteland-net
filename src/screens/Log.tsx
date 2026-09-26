@@ -7,6 +7,7 @@ import {
   MEDIUM_INTERVALS_DAYS,
   MISS_REQUEUE_MAX,
   MISS_REQUEUE_MIN,
+  SCRAP_CORRECT,
   SUPPLIES_CORRECT,
   SUPPLIES_DECAY_FLAT,
   SUPPLIES_DECAY_PERCENT,
@@ -130,6 +131,10 @@ export function Log() {
             You lose {SUPPLIES_DECAY_FLAT} + {SUPPLIES_DECAY_PERCENT * 100}% of your stockpile every day. Correct answers add {SUPPLIES_CORRECT}. Answering a question you
             previously missed adds {SUPPLIES_RECOVERY_BONUS} more. Wrong answers cost nothing. At zero the radio drops to low power until you study again. That's all
             that happens.
+          </Rule>
+          <Rule title="Outpost">
+            Every correct answer also brings back {SCRAP_CORRECT} Scrap, with more when a question moves up a pool or you pass a boss battle. Scrap never decays.
+            Spend it on the Outpost screen. Each structure has 3 levels and a small perk that adjusts Supplies or Scrap. None of them make questions easier.
           </Rule>
           <Rule title="Boss battle">
             One question from each question group, matching the real exam:{' '}

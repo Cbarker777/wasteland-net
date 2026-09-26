@@ -1,7 +1,8 @@
 import { POOL_ORDER, POOLS, skillInfo, type PoolId, type SubelementId } from '../data/pool'
 import { STREAK_BADGES, SURVIVOR_DAYS } from './config'
+import { STRUCTURES } from './outpost'
 
-export type BadgeKind = 'streak' | 'boss-pass' | 'boss-perfect' | 'mastery' | 'survivor'
+export type BadgeKind = 'streak' | 'boss-pass' | 'boss-perfect' | 'mastery' | 'survivor' | 'outpost-built' | 'outpost-maxed'
 
 export type Badge = {
   id: string
@@ -37,6 +38,8 @@ export const BADGES: Badge[] = [
     streakDays: days,
   })),
   { id: 'survivor', kind: 'survivor', name: 'Still Standing', description: `Keep Supplies above zero for ${SURVIVOR_DAYS} days straight.`, glyph: `${SURVIVOR_DAYS}+` },
+  { id: 'outpost-built', kind: 'outpost-built', name: 'Settlement Founder', description: `Build all ${STRUCTURES.length} outpost structures.`, glyph: 'BASE' },
+  { id: 'outpost-maxed', kind: 'outpost-maxed', name: 'Fortress of the Airwaves', description: `Upgrade all ${STRUCTURES.length} outpost structures to max level.`, glyph: 'MAX' },
   ...POOL_ORDER.flatMap<Badge>((pool) => {
     const p = POOLS[pool]
     return [
@@ -74,6 +77,8 @@ export type BadgeFacts = {
   bestBossScore: Partial<Record<PoolId, number>>
   maxedSkills: ReadonlySet<SubelementId>
   survivorDays: number
+  structuresBuilt: number
+  structuresMaxed: number
 }
 
 export function qualifies(badge: Badge, f: BadgeFacts): boolean {
@@ -88,6 +93,10 @@ export function qualifies(badge: Badge, f: BadgeFacts): boolean {
       return f.maxedSkills.has(badge.subelement!)
     case 'survivor':
       return f.survivorDays >= SURVIVOR_DAYS
+    case 'outpost-built':
+      return f.structuresBuilt >= STRUCTURES.length
+    case 'outpost-maxed':
+      return f.structuresMaxed >= STRUCTURES.length
   }
 }
 

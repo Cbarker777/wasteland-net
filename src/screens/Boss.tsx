@@ -211,7 +211,7 @@ function BossResult({ outcome, ids, answers, onDone }: { outcome: BossOutcome; i
             </div>
           </div>
           <div className="text-sm text-sand">
-            +{outcome.xp} XP · +{outcome.supplies} supplies
+            +{outcome.xp} XP · +{outcome.supplies} supplies · +{outcome.scrap} scrap
           </div>
         </div>
       </Panel>

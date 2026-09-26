@@ -2,12 +2,14 @@ import { POOLS } from '../data/pool'
 import { DAILY_GOAL, SUPPLIES_LOW } from '../game/config'
 import { rankFor } from '../game/progression'
 import { currentStreak } from '../game/streak'
+import { perks } from '../game/outpost'
 import { dailyDecay } from '../game/supplies'
 import { today, useGame, type Screen } from '../store'
 import { Meter } from './kit'
 
 const NAV: { id: Screen; label: string }[] = [
   { id: 'base', label: 'Base' },
+  { id: 'outpost', label: 'Outpost' },
   { id: 'study', label: 'Scavenge' },
   { id: 'boss', label: 'Boss Battle' },
   { id: 'skills', label: 'Skills' },
@@ -36,7 +38,7 @@ export function StatusBar() {
             <span className="rounded-sm px-1.5 py-0.5 text-[10px] tracking-[0.14em] text-signal uppercase ring-1 ring-signal-dim">{POOLS[save.pool].name}</span>
           </button>
 
-          <div className="grid w-full grid-cols-3 gap-3 sm:ml-auto sm:w-auto sm:max-w-xl sm:flex-1 sm:gap-4">
+          <div className="grid w-full grid-cols-4 gap-3 sm:ml-auto sm:w-auto sm:max-w-2xl sm:flex-1 sm:gap-4">
             <div>
               <div className="label truncate">
                 <span className="hidden sm:inline">Rank · </span>
@@ -47,12 +49,19 @@ export function StatusBar() {
             </div>
             <div>
               <div className="label truncate">
-                Supplies<span className="hidden sm:inline"> · −{dailyDecay(supplies)}/day</span>
+                Supplies<span className="hidden sm:inline"> · −{dailyDecay(supplies, perks(save.outpost).decayMultiplier)}/day</span>
               </div>
               <div className={`truncate text-sm ${supplies === 0 ? 'text-rust flicker' : low ? 'text-rust' : 'text-rad'}`}>
                 {supplies === 0 ? 'LOW POWER' : supplies.toLocaleString()}
               </div>
               <Meter value={supplies} max={Math.max(200, supplies)} tone={supplies === 0 || low ? 'rust' : 'rad'} className="mt-1" />
+            </div>
+            <div>
+              <div className="label">Scrap</div>
+              <div className="truncate text-sm text-sand">{save.scrap.toLocaleString()}</div>
+              <button onClick={() => go('outpost')} className="mt-1 block text-left text-[10px] tracking-wider text-signal-dim uppercase hover:text-signal">
+                Build ›
+              </button>
             </div>
             <div>
               <div className="label">Streak</div>

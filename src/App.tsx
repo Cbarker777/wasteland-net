@@ -3,6 +3,7 @@ import { Badges } from './screens/Badges'
 import { Base } from './screens/Base'
 import { Boss } from './screens/Boss'
 import { Log } from './screens/Log'
+import { OutpostScreen } from './screens/OutpostScreen'
 import { Skills } from './screens/Skills'
 import { Study } from './screens/Study'
 import { useGame } from './store'
@@ -40,6 +41,7 @@ export default function App() {
       )}
       <main className="mx-auto max-w-5xl px-4 py-5">
         {screen === 'base' && <Base />}
+        {screen === 'outpost' && <OutpostScreen />}
         {screen === 'study' && <Study />}
         {screen === 'boss' && <Boss />}
         {screen === 'skills' && <Skills />}

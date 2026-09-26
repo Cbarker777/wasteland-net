@@ -3,10 +3,11 @@ import { persist } from 'zustand/middleware'
 import type { PoolId, SubelementId } from './data/pool'
 import type { Badge } from './game/badges'
 import { dateKey } from './game/dates'
+import type { StructureId } from './game/outpost'
 import type { Rank } from './game/progression'
 import * as game from './game/save'
 
-export type Screen = 'base' | 'study' | 'boss' | 'skills' | 'badges' | 'log'
+export type Screen = 'base' | 'outpost' | 'study' | 'boss' | 'skills' | 'badges' | 'log'
 export type Focus = SubelementId | 'all'
 
 export type Toast = { id: number; kind: 'badge' | 'rank'; title: string; body: string }
@@ -25,6 +26,7 @@ type State = {
   answerBoss: (index: number, choice: number | null) => void
   abandonBoss: () => void
   submitBoss: () => game.BossOutcome
+  build: (id: StructureId) => void
   importSave: (json: string) => void
   resetSave: () => void
   dismissToast: (id: number) => void
@@ -65,6 +67,10 @@ export const useGame = create<State>()(
         const r = game.submitBoss(get().save, today(), Math.random)
         set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.outcome.earned, r.outcome.rankUp)] }))
         return r.outcome
+      },
+      build: (id) => {
+        const r = game.build(get().save, id, today())
+        set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.earned, null)] }))
       },
       importSave: (json) => {
         set({ save: game.parseSave(json) })

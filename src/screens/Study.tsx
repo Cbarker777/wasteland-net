@@ -137,8 +137,9 @@ function Result({ outcome, correctLetter, onNext }: { outcome: AnswerOutcome; co
           <>
             <div className="font-bold text-rad glow-rad">SIGNAL CLEAR</div>
             <div className="mt-1 text-sm text-sand">
-              +{outcome.xp} XP · +{outcome.supplies} supplies
+              +{outcome.xp} XP · +{outcome.supplies} supplies · +{outcome.scrap} scrap
               {outcome.recoveryBonus > 0 && <span className="text-signal"> · +{outcome.recoveryBonus} recovery bonus</span>}
+              {outcome.solarCharge > 0 && <span className="text-sky"> · +{outcome.solarCharge} solar charge</span>}
             </div>
             <div className="mt-1 text-xs text-sand-dim">
               {outcome.graduated === 'medium' && '3 in a row — moved to the medium-term pool. It returns in a couple of days.'}

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { figureSrc, POOL_ORDER, POOLS, QUESTIONS_BY_ID } from '../data/pool'
-import { answerBoss, answerStudy, IDS_BY_POOL, IDS_BY_SUBELEMENT, newSave, parseSave, setPool, startBoss, submitBoss, tick, type Save } from './save'
+import { answerBoss, answerStudy, build, IDS_BY_POOL, IDS_BY_SUBELEMENT, newSave, parseSave, setPool, startBoss, submitBoss, tick, type Save } from './save'
 import { addDays } from './dates'
 import { buildExam } from './boss'
 import { rankFor, skillBreakdown, RANKS } from './progression'
 import { currentStreak, longestStreak } from './streak'
 import { dailyDecay, decaySupplies, initialSupplies } from './supplies'
-import { DAILY_GOAL, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
+import { DAILY_GOAL, SCRAP_BOSS_PASS, SCRAP_CORRECT, SUPPLIES_CORRECT, SUPPLIES_RECOVERY_BONUS, SUPPLIES_START, XP_CORRECT } from './config'
+import { emptyOutpost, MAX_STRUCTURE_LEVEL, STRUCTURES } from './outpost'
 
 // Every file actually shipped in public/figures/.
 const FIGURE_FILES = new Set(Object.keys(import.meta.glob('../../public/figures/*')).map((p) => `figures/${p.split('/').pop()}`))
@@ -138,7 +139,7 @@ describe('study answers', () => {
   it('never subtracts supplies or XP for a wrong answer', () => {
     const save = newSave(today)
     const { save: after, outcome } = answerStudy(save, q.id, wrong, today, rng)
-    expect(outcome).toMatchObject({ correct: false, xp: 0, supplies: 0 })
+    expect(outcome).toMatchObject({ correct: false, xp: 0, supplies: 0, scrap: 0 })
     expect(after.supplies.amount).toBe(SUPPLIES_START)
     expect(after.xp).toBe(0)
   })
@@ -240,7 +241,10 @@ describe('save files', () => {
       badges: { 'boss-pass': today },
     }
     const save = parseSave(JSON.stringify(v1))
-    expect(save).toMatchObject({ version: 2, pool: 'extra', xp: 540, badges: { 'boss-pass': today } })
+    expect(save).toMatchObject({ version: 3, pool: 'extra', xp: 540, badges: { 'boss-pass': today } })
+    // Back-pay: Scrap for every correct answer already logged.
+    expect(save.scrap).toBe(3 * SCRAP_CORRECT)
+    expect(save.outpost).toEqual(emptyOutpost())
     expect(save.bossHistory[0].pool).toBe('extra')
     expect(save.cards.E1A01.stage).toBe('medium')
   })
@@ -250,5 +254,75 @@ describe('save files', () => {
     const save = answerStudy(newSave(today), q.id, q.correct, today, rng).save
     expect(parseSave(JSON.stringify(save))).toEqual(save)
     expect(() => parseSave('{"hello":1}')).toThrow()
+  })
+})
+
+describe('outpost', () => {
+  const rich = (): Save => ({ ...newSave(today), scrap: 10_000 })
+  const withOutpost = (levels: Partial<Save['outpost']>): Save => ({ ...newSave(today), outpost: { ...emptyOutpost(), ...levels } })
+
+  it('pays Scrap for correct answers only', () => {
+    const right = answerStudy(newSave(today), q.id, q.correct, today, rng)
+    expect(right.outcome.scrap).toBe(SCRAP_CORRECT)
+    expect(right.save.scrap).toBe(SCRAP_CORRECT)
+    expect(answerStudy(newSave(today), q.id, wrong, today, rng).save.scrap).toBe(0)
+  })
+
+  it('spends Scrap to build and upgrade, up to max level', () => {
+    let save = rich()
+    const tower = STRUCTURES.find((s) => s.id === 'tower')!
+    save = build(save, 'tower', today).save
+    expect(save.outpost.tower).toBe(1)
+    expect(save.scrap).toBe(10_000 - tower.costs[0])
+    save = build(build(save, 'tower', today).save, 'tower', today).save
+    expect(save.outpost.tower).toBe(MAX_STRUCTURE_LEVEL)
+    expect(() => build(save, 'tower', today)).toThrow('max')
+  })
+
+  it('refuses to build without enough Scrap and never touches Supplies', () => {
+    const poor = newSave(today)
+    expect(() => build(poor, 'tower', today)).toThrow('Scrap')
+    expect(build(rich(), 'bunker', today).save.supplies).toEqual(rich().supplies)
+  })
+
+  it('Radio Tower and Greenhouse add per-answer Scrap and Supplies', () => {
+    const { outcome } = answerStudy(withOutpost({ tower: 2, greenhouse: 3 }), q.id, q.correct, today, rng)
+    expect(outcome.scrap).toBe(SCRAP_CORRECT + 2)
+    expect(outcome.supplies).toBe(SUPPLIES_CORRECT + 3)
+  })
+
+  it('Field Clinic raises the recovery bonus', () => {
+    const missed = answerStudy(withOutpost({ clinic: 2 }), q.id, wrong, today, rng).save
+    expect(answerStudy(missed, q.id, q.correct, today, rng).outcome.recoveryBonus).toBe(SUPPLIES_RECOVERY_BONUS + 6)
+  })
+
+  it('Solar Array charges once per day on the first correct answer', () => {
+    const q2 = POOLS.extra.questions[1]
+    const first = answerStudy(withOutpost({ solar: 1 }), q.id, q.correct, today, rng)
+    expect(first.outcome.solarCharge).toBe(5)
+    expect(answerStudy(first.save, q2.id, q2.correct, today, rng).outcome.solarCharge).toBe(0)
+    expect(answerStudy(first.save, q2.id, q2.correct, addDays(today, 1), rng).outcome.solarCharge).toBe(5)
+  })
+
+  it('Water Purifier slows daily decay', () => {
+    const plain = tick({ ...newSave(today), supplies: { amount: 500, lastDecayDate: today, positiveSince: today } }, addDays(today, 1)).save
+    const purified = tick({ ...withOutpost({ purifier: 3 }), supplies: { amount: 500, lastDecayDate: today, positiveSince: today } }, addDays(today, 1)).save
+    expect(500 - purified.supplies.amount).toBeLessThan(500 - plain.supplies.amount)
+    expect(500 - purified.supplies.amount).toBe(Math.round((500 - plain.supplies.amount) * 0.55))
+  })
+
+  it('Signal Bunker adds Scrap for a passed boss battle', () => {
+    let save = startBoss(withOutpost({ bunker: 2 }), today, rng)
+    save.activeBoss!.ids.forEach((id, i) => (save = answerBoss(save, i, QUESTIONS_BY_ID.get(id)!.correct)))
+    const { outcome } = submitBoss(save, today, rng)
+    expect(outcome.scrap).toBe(50 * SCRAP_CORRECT + SCRAP_BOSS_PASS + 30)
+  })
+
+  it('awards the founder badge once all six are built', () => {
+    let save = rich()
+    for (const s of STRUCTURES.slice(0, -1)) save = build(save, s.id, today).save
+    expect(save.badges['outpost-built']).toBeUndefined()
+    const last = build(save, STRUCTURES.at(-1)!.id, today)
+    expect(last.earned.map((b) => b.id)).toContain('outpost-built')
   })
 })
