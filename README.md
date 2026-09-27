@@ -47,6 +47,18 @@ bash update.sh
 
 It pulls, rebuilds the image, and replaces the running container on port 8282.
 
+## Optional: usage analytics with Umami
+
+The container can report anonymous usage to your own [Umami](https://umami.is) instance. It's off unless you set these variables on the container (in Unraid: **Edit** the container → **Add another Path, Port, Variable…** → **Variable**):
+
+| Variable | Example | |
+|---|---|---|
+| `UMAMI_SCRIPT_URL` | `https://umami.example.org/script.js` | Required to turn it on |
+| `UMAMI_WEBSITE_ID` | `a1b2c3d4-…` | Required, from Umami → Settings → Websites |
+| `UMAMI_DOMAINS` | `wasteland.example.org` | Optional: only count visits to this hostname |
+
+It tracks screen views (as virtual pages like `/study` and `/boss`) and game events: `answer` (pool, sub-element, correct), `graduate`, `daily-goal`, `boss-battle` and `mini-boss` (score, passed), `build`, `badge`, `rank-up`, `pool-select`, `save-export`, `save-import`, and `save-reset`. It never sends names, question text, or anything typed. Umami is cookieless and the tracker respects Do Not Track.
+
 ## Your progress lives in the browser
 
 No accounts, no sync. Progress is saved in the browser's `localStorage` for the address you open it at, so each browser or device keeps its own save. Use **Radio Log → Export save** to back it up, or to move it to another device with **Import save**. Clearing site data for the address erases the save.

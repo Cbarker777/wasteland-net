@@ -1,4 +1,5 @@
 import { Fragment, useRef, useState } from 'react'
+import { trackEvent } from '../analytics'
 import { POOL_ORDER, POOLS } from '../data/pool'
 import {
   DAILY_GOAL,
@@ -36,6 +37,7 @@ export function Log() {
   const correct = cards.reduce((n, c) => n + c.correct, 0)
 
   const exportSave = () => {
+    trackEvent('save-export')
     const blob = new Blob([JSON.stringify(save)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -81,6 +83,11 @@ export function Log() {
         <p className="mt-4 text-xs text-static">
           Question pools: {POOL_ORDER.map((p) => POOLS[p].version).join('; ')}. Source: NCVEC, public domain.
         </p>
+        {typeof window !== 'undefined' && window.umami && (
+          <p className="mt-2 text-xs text-static">
+            Anonymous usage stats are on: this server's owner sees which screens and game events get used. No names, no cookies, nothing you type.
+          </p>
+        )}
       </Panel>
 
       <Panel title="Save file">

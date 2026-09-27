@@ -8,8 +8,8 @@ offline-first static web app deployed as a Docker container on Unraid. Sister pr
 
 React + Vite + TypeScript (strict), Tailwind v4 (`@theme` tokens in `src/index.css`), Zustand with
 `persist` → localStorage (`src/store.ts`), Vitest. nginx static image, published to GHCR by
-`.github/workflows/docker-publish.yml`. No router: screens are store state. No backend, no
-runtime network calls, no analytics.
+`.github/workflows/docker-publish.yml`. No router: screens are store state. No backend and no
+runtime network calls, except optional self-hosted Umami analytics (see below).
 
 ## Rules
 
@@ -29,4 +29,8 @@ runtime network calls, no analytics.
 - The boss battle draws one question per group, which gives the official sub-element
   distribution. Exam length and pass mark come from the pool JSON (Technician and General 35/26, Extra 50/37).
 - Save format changes: bump `SAVE_VERSION` in `src/game/save.ts` and add a zustand `migrate`.
+- **Analytics:** the only tracker is optional self-hosted Umami, turned on at runtime by the
+  container's `UMAMI_*` env vars (`docker/40-umami.sh` writes `analytics.js`). Send events only
+  through `src/analytics.ts`, from the store, never from `src/game/`. Event data is game facts
+  only: never names, free text, question text, or anything a player typed. No other trackers.
 - Run `npm test` and `npm run lint` before committing.

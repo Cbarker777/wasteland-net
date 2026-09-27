@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { trackScreen } from './analytics'
 import { Badges } from './screens/Badges'
 import { Base } from './screens/Base'
 import { Boss } from './screens/Boss'
@@ -29,6 +30,7 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+    trackScreen(screen)
   }, [screen])
 
   return (

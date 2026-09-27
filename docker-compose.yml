@@ -8,5 +8,10 @@ services:
     ports:
       - "8282:80"
     restart: unless-stopped
+    # Optional usage analytics with a self-hosted Umami. Leave unset to turn it off.
+    # environment:
+    #   UMAMI_SCRIPT_URL: https://umami.example.org/script.js
+    #   UMAMI_WEBSITE_ID: 00000000-0000-0000-0000-000000000000
+    #   UMAMI_DOMAINS: wasteland.example.org
     # No volumes: the container is stateless. All progress lives in the
     # browser's localStorage, per browser profile. See README for backups.

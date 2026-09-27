@@ -5,6 +5,9 @@ import type { Badge } from './game/badges'
 import { dateKey } from './game/dates'
 import type { StructureId } from './game/outpost'
 import type { Rank } from './game/progression'
+import { trackEvent } from './analytics'
+import { poolOf } from './data/pool'
+import { DAILY_GOAL } from './game/config'
 import * as game from './game/save'
 
 export type Screen = 'base' | 'outpost' | 'study' | 'boss' | 'skills' | 'badges' | 'log'
@@ -36,7 +39,10 @@ type State = {
 export const today = () => dateKey(new Date())
 
 let toastId = 0
+/** Sends badge and rank-up events; returns the toasts to show for them. */
 function toastsFor(earned: Badge[], rankUp: Rank | null): Toast[] {
+  for (const b of earned) trackEvent('badge', { badge: b.id })
+  if (rankUp) trackEvent('rank-up', { rank: rankUp.id })
   const out: Toast[] = earned.map((b) => ({ id: ++toastId, kind: 'badge', title: `BADGE EARNED: ${b.name.toUpperCase()}`, body: b.description }))
   if (rankUp) out.unshift({ id: ++toastId, kind: 'rank', title: `RANK UP: ${rankUp.name.toUpperCase()}`, body: rankUp.flavor })
   return out
@@ -51,13 +57,19 @@ export const useGame = create<State>()(
       toasts: [],
       go: (screen, focus) => set((s) => ({ screen, focus: focus ?? s.focus })),
       setFocus: (focus) => set({ focus }),
-      setPool: (pool) => set((s) => ({ save: game.setPool(s.save, pool), focus: 'all' })),
+      setPool: (pool) => {
+        if (pool !== get().save.pool) trackEvent('pool-select', { pool })
+        set((s) => ({ save: game.setPool(s.save, pool), focus: 'all' }))
+      },
       tick: () => {
         const r = game.tick(get().save, today())
         if (r.save !== get().save) set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.earned, null)] }))
       },
       answerStudy: (id, choice) => {
         const r = game.answerStudy(get().save, id, choice, today(), Math.random)
+        trackEvent('answer', { pool: poolOf(id), subelement: id.slice(0, 2), correct: r.outcome.correct })
+        if (r.save.days[today()] === DAILY_GOAL) trackEvent('daily-goal')
+        if (r.outcome.graduated) trackEvent('graduate', { pool: poolOf(id), to: r.outcome.graduated })
         set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.outcome.earned, r.outcome.rankUp)] }))
         return r.outcome
       },
@@ -67,18 +79,31 @@ export const useGame = create<State>()(
       abandonBoss: () => set((s) => ({ save: game.abandonBoss(s.save) })),
       submitBoss: () => {
         const r = game.submitBoss(get().save, today(), Math.random)
+        const o = r.outcome
+        trackEvent(o.subelement ? 'mini-boss' : 'boss-battle', {
+          pool: o.pool,
+          ...(o.subelement ? { subelement: o.subelement } : {}),
+          score: o.score.correct,
+          total: o.score.total,
+          passed: o.score.passed,
+        })
         set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.outcome.earned, r.outcome.rankUp)] }))
         return r.outcome
       },
       build: (id) => {
         const r = game.build(get().save, id, today())
+        trackEvent('build', { structure: id, level: r.save.outpost[id] })
         set((s) => ({ save: r.save, toasts: [...s.toasts, ...toastsFor(r.earned, null)] }))
       },
       importSave: (json) => {
         set({ save: game.parseSave(json) })
+        trackEvent('save-import')
         get().tick()
       },
-      resetSave: () => set({ save: game.newSave(today()), screen: 'base', focus: 'all' }),
+      resetSave: () => {
+        trackEvent('save-reset')
+        set({ save: game.newSave(today()), screen: 'base', focus: 'all' })
+      },
       dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     }),
     {
